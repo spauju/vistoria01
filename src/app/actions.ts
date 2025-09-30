@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById, createUser as dbCreateUser } from '@/lib/data';
+import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById, createUser as dbCreateUser, getUserByEmail } from '@/lib/data';
 import { add, format } from 'date-fns';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
@@ -157,17 +157,23 @@ export async function createUserAction(prevState: any, formData: FormData) {
   }
 
   const { email, password } = validatedFields.data;
+  const auth = getAuth(app);
 
   try {
-     // This is a workaround for the demo to "create" a user in our mock DB.
-     // In a real Firebase app, createUserWithEmailAndPassword would handle this.
-     // We are not calling a real auth service here, just adding to our local array.
+    const existingUser = await getUserByEmail(email);
+    if (existingUser && existingUser.id !== email) { // Check if user exists in mock DB but wasn't a placeholder
+         return { message: 'Este email já está em uso.', errors: { email: ['Este email já está em uso.'] } };
+    }
+    
+    await createUserWithEmailAndPassword(auth, email, password);
+    // Also add to our mock DB
     await dbCreateUser(email, password);
+
     revalidatePath('/');
     return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
   } catch (error: any) {
     let message = 'Falha ao criar usuário.';
-    if (error.message === 'User already exists') {
+    if (error.code === 'auth/email-already-in-use') {
        message = 'Este email já está em uso.';
     }
     return { message, errors: { email: [message] } };
