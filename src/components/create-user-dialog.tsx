@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useActionState } from 'react';
+import { useState, useEffect, useActionState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -38,6 +38,9 @@ export function CreateUserDialog() {
   const [open, setOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
+  // We don't need the form's isPending with useActionState
+  const [_isPending, startTransition] = useTransition();
+
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -53,7 +56,9 @@ export function CreateUserDialog() {
     const formData = new FormData();
     formData.append('email', data.email);
     formData.append('password', data.password);
-    formAction(formData);
+    startTransition(() => {
+        formAction(formData);
+    });
   };
   
   useEffect(() => {
@@ -69,7 +74,7 @@ export function CreateUserDialog() {
         }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[state]);
+  },[state, isPending]);
 
 
   return (
