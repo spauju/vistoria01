@@ -20,7 +20,6 @@ import Link from 'next/link';
 
 export function Header() {
   const { user, signOut } = useAuth();
-  const canAddArea = user?.role === 'admin';
   const isAdmin = user?.role === 'admin';
   const userInitial = user?.name ? user.name[0].toUpperCase() : '?';
 
@@ -33,7 +32,7 @@ export function Header() {
         </h1>
       </div>
       <div className="ml-auto flex items-center gap-4">
-        {canAddArea && (
+        {isAdmin && (
             <AddAreaDialog>
             <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -41,12 +40,14 @@ export function Header() {
             </Button>
             </AddAreaDialog>
         )}
-        <Button asChild variant="outline">
-            <Link href="/reports">
-                <LineChart className="mr-2 h-4 w-4" />
-                Relatórios
-            </Link>
-        </Button>
+        {isAdmin && (
+          <Button asChild variant="outline">
+              <Link href="/reports">
+                  <LineChart className="mr-2 h-4 w-4" />
+                  Relatórios
+              </Link>
+          </Button>
+        )}
          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

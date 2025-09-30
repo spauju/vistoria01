@@ -36,13 +36,17 @@ export default function ReportsPage() {
   });
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
+    if (!authLoading) {
+      if (!user) {
+        router.push('/login');
+      } else if (user.role !== 'admin') {
+        router.push('/');
+      }
     }
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (user) {
+    if (user?.role === 'admin') {
       getAreas().then(data => {
         setAreas(data);
         setLoading(false);
@@ -68,7 +72,7 @@ export default function ReportsPage() {
     });
   }, [areas, filters]);
 
-  if (authLoading || loading || !user) {
+  if (authLoading || loading || !user || user.role !== 'admin') {
     return (
       <div className="flex min-h-screen w-full flex-col">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
