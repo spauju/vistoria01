@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useTransition, type ReactNode } from 'react';
-import { useFormState } from 'react-dom';
+import { useState, useTransition, useActionState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -70,7 +69,7 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   });
 
   const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
-  const [state, formAction] = useFormState(action, { message: '', errors: {} });
+  const [state, formAction] = useActionState(action, { message: '', errors: {} });
 
   const onSubmit = (data: AreaFormValues) => {
     const formData = new FormData();

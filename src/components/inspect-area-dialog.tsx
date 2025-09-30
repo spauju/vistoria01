@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useTransition, type ReactNode } from 'react';
-import { useFormState } from 'react-dom';
+import { useState, useTransition, useActionState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -61,7 +60,7 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
     },
   });
 
-  const [state, formAction] = useFormState(addInspectionAction.bind(null, area.id), { message: '', errors: {} });
+  const [state, formAction] = useActionState(addInspectionAction.bind(null, area.id), { message: '', errors: {} });
 
   const onSubmit = (data: InspectionFormValues) => {
     const formData = new FormData();
