@@ -1,7 +1,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
-import { PlusCircle, LogOut, UserPlus } from 'lucide-react';
+import { PlusCircle, LogOut, UserPlus, LineChart } from 'lucide-react';
 import { AddAreaDialog } from './add-area-dialog';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -15,6 +15,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChangePasswordDialog } from './change-password-dialog';
 import { CreateUserDialog } from './create-user-dialog';
+import Link from 'next/link';
 
 
 export function Header() {
@@ -40,6 +41,12 @@ export function Header() {
             </Button>
             </AddAreaDialog>
         )}
+        <Button asChild variant="outline">
+            <Link href="/reports">
+                <LineChart className="mr-2 h-4 w-4" />
+                Relatórios
+            </Link>
+        </Button>
          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

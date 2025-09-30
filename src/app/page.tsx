@@ -35,7 +35,9 @@ export default function Home() {
         <div className="flex min-h-screen w-full flex-col">
             <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
                 <Skeleton className="h-8 w-32" />
-                <div className="ml-auto">
+                 <div className="ml-auto flex items-center gap-4">
+                    <Skeleton className="h-10 w-24" />
+                    <Skeleton className="h-10 w-10" />
                     <Skeleton className="h-8 w-8 rounded-full" />
                 </div>
             </header>
