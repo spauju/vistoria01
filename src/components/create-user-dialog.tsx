@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useActionState } from 'react';
+import { useState, useEffect, useActionState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -37,7 +37,6 @@ type UserFormValues = z.infer<typeof userSchema>;
 export function CreateUserDialog() {
   const [open, setOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
   const form = useForm<UserFormValues>({
@@ -48,30 +47,28 @@ export function CreateUserDialog() {
     },
   });
 
-  const [state, formAction] = useActionState(createUserAction, { message: '', errors: {} });
+  const [state, formAction, isPending] = useActionState(createUserAction, { message: '', errors: {} });
 
   const onSubmit = (data: UserFormValues) => {
     const formData = new FormData();
     formData.append('email', data.email);
     formData.append('password', data.password);
-
-    startTransition(() => {
-        formAction(formData);
-    });
+    formAction(formData);
   };
   
-  if (state.message && !isPending) {
-    toast({
-      title: 'Criação de Usuário',
-      description: state.message,
-      variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
-    });
-    if (!state.errors || Object.keys(state.errors).length === 0) {
-      setOpen(false);
-      form.reset();
+  useEffect(() => {
+    if (state.message) {
+        toast({
+            title: 'Criação de Usuário',
+            description: state.message,
+            variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
+        });
+        if (!state.errors || Object.keys(state.errors).length === 0) {
+            setOpen(false);
+            form.reset();
+        }
     }
-    state.message = ''; // Reset message
-  }
+  },[state, toast, form]);
 
 
   return (

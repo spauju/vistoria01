@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useActionState, type ReactNode } from 'react';
+import { useState, useTransition, useActionState, type ReactNode, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -50,7 +50,6 @@ interface AddAreaDialogProps {
 
 export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
   const form = useForm<AreaFormValues>({
@@ -69,31 +68,30 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   });
 
   const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
-  const [state, formAction] = useActionState(action, { message: '', errors: {} });
+  const [state, formAction, isPending] = useActionState(action, { message: '', errors: {} });
 
   const onSubmit = (data: AreaFormValues) => {
     const formData = new FormData();
     formData.append('sectorLote', data.sectorLote);
     formData.append('plots', data.plots);
     formData.append('plantingDate', format(data.plantingDate, 'yyyy-MM-dd'));
-
-    startTransition(() => {
-      formAction(formData);
-    });
+    formAction(formData);
   };
-
-  if (state.message && !isPending) {
-    toast({
-      title: area ? 'Atualização de Área' : 'Cadastro de Área',
-      description: state.message,
-      variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
-    });
-    if (!state.errors || Object.keys(state.errors).length === 0) {
-      setOpen(false);
-      form.reset();
+  
+  useEffect(() => {
+    if (state.message) {
+      toast({
+        title: area ? 'Atualização de Área' : 'Cadastro de Área',
+        description: state.message,
+        variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
+      });
+      if (!state.errors || Object.keys(state.errors).length === 0) {
+        setOpen(false);
+        form.reset();
+      }
     }
-    state.message = ''; // Reset message
-  }
+  }, [state, area, form, toast]);
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

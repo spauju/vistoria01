@@ -142,9 +142,7 @@ const userSchema = z.object({
   password: z.string().min(6, 'A senha precisa de no mínimo 6 caracteres.'),
 });
 
-// This is a simplified example. In a real app, user creation would be more secure
-// and likely handled by a backend function with admin privileges.
-// Creating users client-side is generally discouraged.
+
 export async function createUserAction(prevState: any, formData: FormData) {
   const validatedFields = userSchema.safeParse({
     email: formData.get('email'),
@@ -165,13 +163,13 @@ export async function createUserAction(prevState: any, formData: FormData) {
      // In a real Firebase app, createUserWithEmailAndPassword would handle this.
      // We are not calling a real auth service here, just adding to our local array.
     await dbCreateUser(email, password);
+    revalidatePath('/');
     return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
   } catch (error: any) {
     let message = 'Falha ao criar usuário.';
-    // In a real app, you'd handle Firebase error codes
-    // if (error.code === 'auth/email-already-in-use') {
-    //   message = 'Este email já está em uso.';
-    // }
+    if (error.message === 'User already exists') {
+       message = 'Este email já está em uso.';
+    }
     return { message, errors: { email: [message] } };
   }
 }
