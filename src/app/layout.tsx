@@ -13,6 +13,7 @@ const ptSans = PT_Sans({
 export const metadata: Metadata = {
   title: 'CanaControl',
   description: 'Aplicativo de vistoria de cana-de-açúcar',
+  manifest: '/manifest.webmanifest',
 };
 
 export default function RootLayout({

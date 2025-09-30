@@ -1,0 +1,21 @@
+{
+  "name": "CanaControl",
+  "short_name": "CanaControl",
+  "description": "Aplicativo de vistoria de cana-de-açúcar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4fcf7",
+  "theme_color": "#5a8c5a",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
