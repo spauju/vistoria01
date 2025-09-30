@@ -3,60 +3,7 @@
 import type { Area, Inspection, User } from '@/lib/types';
 import { add, format } from 'date-fns';
 
-let areas: Area[] = [
-  {
-    id: '1',
-    sectorLote: 'S1/L01',
-    plots: 'T01, T02, T03',
-    plantingDate: '2024-03-15',
-    nextInspectionDate: '2024-06-13',
-    status: 'Agendada',
-    inspections: [],
-  },
-  {
-    id: '2',
-    sectorLote: 'S1/L02',
-    plots: 'T04, T05',
-    plantingDate: '2024-04-01',
-    nextInspectionDate: '2024-06-30',
-    status: 'Agendada',
-    inspections: [],
-  },
-  {
-    id: '3',
-    sectorLote: 'S2/L05',
-    plots: 'T10',
-    plantingDate: '2024-02-10',
-    nextInspectionDate: '2024-05-30',
-    status: 'Pendente',
-    inspections: [
-      {
-        id: 'insp1',
-        date: '2024-05-10',
-        heightCm: 50,
-        observations: 'Crescimento abaixo do esperado para a época.',
-        atSize: false,
-      },
-    ],
-  },
-    {
-    id: '4',
-    sectorLote: 'S3/L08',
-    plots: 'T12, T13',
-    plantingDate: '2023-12-01',
-    nextInspectionDate: '2024-03-01',
-    status: 'Concluída',
-    inspections: [
-      {
-        id: 'insp2',
-        date: '2024-03-01',
-        heightCm: 180,
-        observations: 'Cana no porte ideal, pronta para o próximo estágio.',
-        atSize: true,
-      },
-    ],
-  },
-];
+let areas: Area[] = [];
 
 let users: User[] = [
     { id: '1', email: 'admin@canacontrol.com', role: 'admin', name: 'Admin' },
