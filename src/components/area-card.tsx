@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Area } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { CalendarDays, Sprout, ClipboardList } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AreaActions } from './area-actions';
 import { InspectAreaDialog } from './inspect-area-dialog';
@@ -25,7 +25,9 @@ interface AreaCardProps {
 export function AreaCard({ area }: AreaCardProps) {
   const placeholderImage = PlaceHolderImages[0];
   const nextInspectionDate = new Date(area.nextInspectionDate);
-  const isOverdue = new Date() > nextInspectionDate && area.status !== 'Concluída';
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const daysUntilInspection = differenceInDays(nextInspectionDate, today);
 
   const getStatusVariant = () => {
     switch (area.status) {
@@ -40,8 +42,30 @@ export function AreaCard({ area }: AreaCardProps) {
     }
   };
 
+  const getCardStyle = () => {
+    if (area.status === 'Concluída') {
+        return {};
+    }
+    if (daysUntilInspection < 0) {
+      return { 
+          backgroundColor: 'hsl(var(--card-overdue-background))',
+          borderColor: 'hsl(var(--card-overdue-border))'
+      };
+    }
+    if (daysUntilInspection <= 7) {
+      return { 
+          backgroundColor: 'hsl(var(--card-approaching-background))',
+          borderColor: 'hsl(var(--card-approaching-border))'
+       };
+    }
+    return {
+        backgroundColor: 'hsl(var(--card-normal-background))',
+        borderColor: 'hsl(var(--card-normal-border))'
+    };
+  }
+
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col" style={getCardStyle()}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div>
@@ -69,7 +93,7 @@ export function AreaCard({ area }: AreaCardProps) {
               Plantio: {format(new Date(area.plantingDate), 'dd/MM/yyyy')}
             </span>
           </div>
-          <div className={cn("flex items-center gap-2", isOverdue && "text-destructive font-semibold")}>
+          <div className={cn("flex items-center gap-2", daysUntilInspection < 0 && area.status !== 'Concluída' && "text-destructive font-semibold")}>
             <CalendarDays className="h-4 w-4" />
             <span>
               Próx. Vistoria: {format(nextInspectionDate, 'PPP', { locale: ptBR })}
