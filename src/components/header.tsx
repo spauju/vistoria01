@@ -1,6 +1,7 @@
+
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
-import { PlusCircle, LogOut } from 'lucide-react';
+import { PlusCircle, LogOut, KeyRound } from 'lucide-react';
 import { AddAreaDialog } from './add-area-dialog';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -12,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ChangePasswordDialog } from './change-password-dialog';
 
 
 export function Header() {
@@ -53,7 +55,7 @@ export function Header() {
             <DropdownMenuLabel>{user?.name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled>Configurações</DropdownMenuItem>
-            <DropdownMenuItem disabled>Alterar Senha</DropdownMenuItem>
+            <ChangePasswordDialog />
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut}>
                 <LogOut className="mr-2 h-4 w-4" />
