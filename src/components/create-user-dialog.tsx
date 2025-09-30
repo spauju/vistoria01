@@ -57,7 +57,7 @@ export function CreateUserDialog() {
   };
   
   useEffect(() => {
-    if (state.message) {
+    if (state.message && !isPending) {
         toast({
             title: 'Criação de Usuário',
             description: state.message,
@@ -68,7 +68,8 @@ export function CreateUserDialog() {
             form.reset();
         }
     }
-  },[state, toast, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[state]);
 
 
   return (
