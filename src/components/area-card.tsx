@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { Area } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { CalendarDays, Sprout, ClipboardList } from 'lucide-react';
+import { CalendarDays, Sprout, ClipboardList, Ruler, Eye } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AreaActions } from './area-actions';
@@ -28,6 +28,8 @@ export function AreaCard({ area }: AreaCardProps) {
   const today = new Date();
   today.setHours(0,0,0,0);
   const daysUntilInspection = differenceInDays(nextInspectionDate, today);
+  const lastInspection = area.inspections.length > 0 ? area.inspections[area.inspections.length - 1] : null;
+
 
   const getStatusVariant = () => {
     switch (area.status) {
@@ -99,6 +101,25 @@ export function AreaCard({ area }: AreaCardProps) {
               Próx. Vistoria: {format(nextInspectionDate, 'PPP', { locale: ptBR })}
             </span>
           </div>
+          {area.status === 'Pendente' && lastInspection && (
+            <div className='mt-2 space-y-2 border-t pt-2'>
+              <p className='text-xs font-semibold text-foreground'>Última Vistoria:</p>
+              <div className="flex items-center gap-2">
+                <Ruler className="h-4 w-4" />
+                <span>
+                  Altura: {lastInspection.heightCm} cm
+                </span>
+              </div>
+              {lastInspection.observations && (
+                 <div className="flex items-start gap-2">
+                  <Eye className="h-4 w-4 mt-0.5" />
+                  <span className='flex-1'>
+                    Obs: {lastInspection.observations}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
       <CardFooter>
