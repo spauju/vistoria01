@@ -64,7 +64,20 @@ const users: User[] = [
 ];
 
 export async function getUserByEmail(email: string): Promise<User | undefined> {
-    return Promise.resolve(users.find(user => user.email === email));
+    const user = users.find(user => user.email === email);
+    if (user) {
+        return Promise.resolve(user);
+    }
+    // Default to technician role if user is not found
+    if(email) {
+        return Promise.resolve({
+            id: email, // use email as id for new users
+            email: email,
+            name: email.split('@')[0],
+            role: 'technician'
+        })
+    }
+    return Promise.resolve(undefined);
 }
 
 
