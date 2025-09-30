@@ -1,7 +1,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
-import { PlusCircle, LogOut, KeyRound } from 'lucide-react';
+import { PlusCircle, LogOut, UserPlus } from 'lucide-react';
 import { AddAreaDialog } from './add-area-dialog';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -14,11 +14,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChangePasswordDialog } from './change-password-dialog';
+import { CreateUserDialog } from './create-user-dialog';
 
 
 export function Header() {
   const { user, signOut } = useAuth();
   const canAddArea = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin';
   const userInitial = user?.name ? user.name[0].toUpperCase() : '?';
 
   return (
@@ -54,8 +56,8 @@ export function Header() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{user?.name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>Configurações</DropdownMenuItem>
             <ChangePasswordDialog />
+            {isAdmin && <CreateUserDialog />}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut}>
                 <LogOut className="mr-2 h-4 w-4" />

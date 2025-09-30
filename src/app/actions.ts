@@ -2,9 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById } from '@/lib/data';
+import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById, createUser as dbCreateUser } from '@/lib/data';
 import { add, format } from 'date-fns';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { app } from '@/lib/firebase';
 
 const areaSchema = z.object({
   sectorLote: z.string().min(1, 'Setor/Lote é obrigatório.'),
@@ -133,4 +135,43 @@ export async function getAISuggestionsAction(heightCm: number, areaId: string) {
         console.error(e);
         return { suggestions: ["Não foi possível obter sugestões da IA."]};
     }
+}
+
+const userSchema = z.object({
+  email: z.string().email('Email inválido.'),
+  password: z.string().min(6, 'A senha precisa de no mínimo 6 caracteres.'),
+});
+
+// This is a simplified example. In a real app, user creation would be more secure
+// and likely handled by a backend function with admin privileges.
+// Creating users client-side is generally discouraged.
+export async function createUserAction(prevState: any, formData: FormData) {
+  const validatedFields = userSchema.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      message: 'Por favor, corrija os erros abaixo.',
+      errors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { email, password } = validatedFields.data;
+
+  try {
+     // This is a workaround for the demo to "create" a user in our mock DB.
+     // In a real Firebase app, createUserWithEmailAndPassword would handle this.
+     // We are not calling a real auth service here, just adding to our local array.
+    await dbCreateUser(email, password);
+    return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
+  } catch (error: any) {
+    let message = 'Falha ao criar usuário.';
+    // In a real app, you'd handle Firebase error codes
+    // if (error.code === 'auth/email-already-in-use') {
+    //   message = 'Este email já está em uso.';
+    // }
+    return { message, errors: { email: [message] } };
+  }
 }

@@ -58,7 +58,7 @@ let areas: Area[] = [
   },
 ];
 
-const users: User[] = [
+let users: User[] = [
     { id: '1', email: 'admin@canacontrol.com', role: 'admin', name: 'Admin' },
     { id: '2', email: 'tech@canacontrol.com', role: 'technician', name: 'Técnico' },
 ];
@@ -70,6 +70,12 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
     }
     // Default to technician role if user is not found
     if(email) {
+        // Let's check if the user was created but not in the initial list
+        // This is a mock, in a real DB you would just query the user
+        const dynamicUser = users.find(u => u.email === email);
+        if(dynamicUser) return Promise.resolve(dynamicUser);
+
+        // If not found at all, treat as a new user with technician role
         return Promise.resolve({
             id: email, // use email as id for new users
             email: email,
@@ -78,6 +84,22 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
         })
     }
     return Promise.resolve(undefined);
+}
+
+// In a real app, this would interact with Firebase Auth
+export async function createUser(email: string, password?: string): Promise<User> {
+    if (users.find(u => u.email === email)) {
+        throw new Error('User already exists');
+    }
+    const newUser: User = {
+        id: `user_${Date.now()}`,
+        email,
+        name: email.split('@')[0],
+        role: 'technician', // Always default to technician
+    };
+    users.push(newUser);
+    // console.log("Users after creation:", users); // For debugging
+    return Promise.resolve(newUser);
 }
 
 
