@@ -1,6 +1,6 @@
 'use server';
 
-import type { Area, Inspection } from '@/lib/types';
+import type { Area, Inspection, User } from '@/lib/types';
 import { add, format } from 'date-fns';
 
 let areas: Area[] = [
@@ -57,6 +57,16 @@ let areas: Area[] = [
     ],
   },
 ];
+
+const users: User[] = [
+    { id: '1', email: 'admin@canacontrol.com', role: 'admin', name: 'Admin' },
+    { id: '2', email: 'tech@canacontrol.com', role: 'technician', name: 'Técnico' },
+];
+
+export async function getUserByEmail(email: string): Promise<User | undefined> {
+    return Promise.resolve(users.find(user => user.email === email));
+}
+
 
 export async function getAreas(): Promise<Area[]> {
   return Promise.resolve(areas);

@@ -37,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AreaActionsProps {
   area: Area;
@@ -102,6 +103,7 @@ export function AreaActions({ area }: AreaActionsProps) {
   const [isAlertOpen, setAlertOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -113,6 +115,8 @@ export function AreaActions({ area }: AreaActionsProps) {
       setAlertOpen(false);
     });
   };
+
+  const canDelete = user?.role === 'admin';
 
   return (
     <>
@@ -135,10 +139,12 @@ export function AreaActions({ area }: AreaActionsProps) {
           {area.status !== 'Concluída' && (
              <RescheduleDialog area={area} />
           )}
-          <DropdownMenuItem onSelect={() => setAlertOpen(true)} className="text-destructive focus:text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Excluir
-          </DropdownMenuItem>
+          {canDelete && (
+            <DropdownMenuItem onSelect={() => setAlertOpen(true)} className="text-destructive focus:text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Excluir
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

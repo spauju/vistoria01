@@ -17,3 +17,12 @@ export type Area = {
   status: AreaStatus;
   inspections: Inspection[];
 };
+
+export type UserRole = 'admin' | 'technician';
+
+export type User = {
+    id: string;
+    email: string;
+    role: UserRole;
+    name: string;
+}
