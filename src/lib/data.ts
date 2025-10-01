@@ -22,9 +22,7 @@ import type { Area, Inspection, User, AreaWithLastInspection } from '@/lib/types
 import { add, format } from 'date-fns';
 
 const usersCollection = collection(db, 'users');
-// Alterando para usar 'vistorias' como a coleção principal para áreas
-const areasCollection = collection(db, 'vistorias'); 
-const inspectionsCollection = collection(db, 'vistorias');
+const vistoriasCollection = collection(db, 'vistorias');
 
 async function seedInitialUsers() {
     const adminUserRef = doc(usersCollection, 'admin@canacontrol.com');
@@ -94,27 +92,23 @@ export async function createUser(email: string, password?: string): Promise<User
   return { ...newUser, id: email };
 }
 
-// A função agora busca documentos da coleção 'vistorias' que representam áreas.
-// Precisamos de um campo para diferenciar uma área de uma vistoria.
-// Vamos assumir que um documento de área não tem 'areaId'.
+
 export async function getAreas(): Promise<AreaWithLastInspection[]> {
-  const snapshot = await getDocs(query(areasCollection, where('areaId', '==', null)));
+  const snapshot = await getDocs(query(vistoriasCollection, where('areaId', '==', undefined)));
   const areas: Area[] = [];
   snapshot.forEach(doc => {
     const data = doc.data();
-    // Filtro para garantir que estamos pegando apenas documentos de área
-    if (!data.areaId) {
-        areas.push({
-            ...data,
-            id: doc.id,
-            plantingDate: data.plantingDate instanceof Timestamp ? data.plantingDate.toDate().toISOString().split('T')[0] : data.plantingDate,
-            nextInspectionDate: data.nextInspectionDate instanceof Timestamp ? data.nextInspectionDate.toDate().toISOString().split('T')[0] : data.nextInspectionDate,
-        } as Area);
-    }
+    // This check is now implicit in the query
+    areas.push({
+        ...data,
+        id: doc.id,
+        plantingDate: data.plantingDate instanceof Timestamp ? data.plantingDate.toDate().toISOString().split('T')[0] : data.plantingDate,
+        nextInspectionDate: data.nextInspectionDate instanceof Timestamp ? data.nextInspectionDate.toDate().toISOString().split('T')[0] : data.nextInspectionDate,
+    } as Area);
   });
   
   const areasWithInspections: AreaWithLastInspection[] = await Promise.all(areas.map(async (area) => {
-    const q = query(inspectionsCollection, where("areaId", "==", area.id), orderBy("date", "desc"), limit(1));
+    const q = query(vistoriasCollection, where("areaId", "==", area.id), orderBy("date", "desc"), limit(1));
     const inspectionSnapshot = await getDocs(q);
     const lastInspection = inspectionSnapshot.empty ? null : inspectionSnapshot.docs[0].data() as Inspection;
     return { ...area, inspections: lastInspection ? [lastInspection] : [] };
@@ -125,7 +119,7 @@ export async function getAreas(): Promise<AreaWithLastInspection[]> {
 }
 
 export async function getAreaById(id: string): Promise<Area | undefined> {
-  const docRef = doc(db, 'vistorias', id); // Alterado de 'areas' para 'vistorias'
+  const docRef = doc(db, 'vistorias', id);
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
@@ -144,20 +138,24 @@ export async function getAreaById(id: string): Promise<Area | undefined> {
 export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status'>): Promise<Area> {
   const nextInspectionDate = format(add(new Date(data.plantingDate), { days: 90 }), 'yyyy-MM-dd');
 
+  // Create a new document reference with a unique ID
+  const newDocRef = doc(vistoriasCollection);
+
   const newAreaData = {
     ...data,
+    id: newDocRef.id, // we add the id to the document itself
     nextInspectionDate,
     status: 'Agendada',
-    areaId: null, // Adicionando campo para distinguir de uma vistoria
+    // We don't set areaId, so it is undefined, distinguishing it from an inspection
   };
 
-  const docRef = await addDoc(areasCollection, newAreaData);
+  await setDoc(newDocRef, newAreaData);
   
-  return { ...newAreaData, id: docRef.id } as Area;
+  return newAreaData as Area;
 }
 
 export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<Area | null> {
-  const docRef = doc(db, 'vistorias', id); // Alterado de 'areas' para 'vistorias'
+  const docRef = doc(db, 'vistorias', id);
   await updateDoc(docRef, data);
   const updatedDoc = await getDoc(docRef);
   return updatedDoc.exists() ? ({ id: updatedDoc.id, ...updatedDoc.data() } as Area) : null;
@@ -166,11 +164,11 @@ export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): P
 export async function deleteArea(id: string): Promise<boolean> {
    const batch = writeBatch(db);
    
-   const areaRef = doc(db, 'vistorias', id); // Alterado de 'areas' para 'vistorias'
+   const areaRef = doc(db, 'vistorias', id);
    batch.delete(areaRef);
 
    // Também deleta as vistorias associadas (documentos que têm areaId igual ao id da área)
-   const q = query(inspectionsCollection, where("areaId", "==", id));
+   const q = query(vistoriasCollection, where("areaId", "==", id));
    const inspectionsSnapshot = await getDocs(q);
    inspectionsSnapshot.forEach((doc) => {
        batch.delete(doc.ref);
@@ -184,7 +182,7 @@ export async function deleteArea(id: string): Promise<boolean> {
 export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<void> {
     
     try {
-        const areaRef = doc(db, "vistorias", areaId); // Alterado de 'areas' para 'vistorias'
+        const areaRef = doc(db, "vistorias", areaId);
 
         const newInspection: Omit<Inspection, 'id'> = {
             ...inspectionData,
@@ -192,7 +190,7 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         };
 
         // Adiciona a vistoria na mesma coleção
-        const inspectionRef = await addDoc(inspectionsCollection, newInspection);
+        const inspectionRef = await addDoc(vistoriasCollection, newInspection);
         
         let newStatus: Area['status'] = 'Pendente';
         let newNextInspectionDate = format(add(new Date(inspectionData.date), { days: 20 }), 'yyyy-MM-dd');
