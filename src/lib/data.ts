@@ -22,17 +22,20 @@ const usersCollection = collection(db, 'users');
 const areasCollection = collection(db, 'areas');
 
 async function seedInitialUsers() {
-    const adminUser = await getUserByEmail('admin@canacontrol.com');
-    if (!adminUser) {
-        await setDoc(doc(usersCollection, 'admin@canacontrol.com'), {
+    const adminUserRef = doc(usersCollection, 'admin@canacontrol.com');
+    const adminDoc = await getDoc(adminUserRef);
+    if (!adminDoc.exists()) {
+        await setDoc(adminUserRef, {
             email: 'admin@canacontrol.com',
             role: 'admin',
             name: 'Admin'
         });
     }
-    const techUser = await getUserByEmail('tech@canacontrol.com');
-    if (!techUser) {
-        await setDoc(doc(usersCollection, 'tech@canacontrol.com'), {
+
+    const techUserRef = doc(usersCollection, 'tech@canacontrol.com');
+    const techDoc = await getDoc(techUserRef);
+    if (!techDoc.exists()) {
+        await setDoc(techUserRef, {
             email: 'tech@canacontrol.com',
             role: 'technician',
             name: 'Técnico'
@@ -47,6 +50,16 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
   if (!email) {
     return undefined;
   }
+   // Hardcode admin user to ensure correct role assignment
+  if (email === 'admin@canacontrol.com') {
+    return {
+        id: email,
+        email: email,
+        name: 'Admin',
+        role: 'admin'
+    };
+  }
+
   const userDocRef = doc(db, 'users', email);
   const userDoc = await getDoc(userDocRef);
 
@@ -64,14 +77,9 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
 }
 
 export async function createUser(email: string, password?: string): Promise<User> {
-  const existingUser = await getUserByEmail(email);
-  // Check if a doc with this ID already exists
-  if (existingUser && existingUser.id === email) {
-      const userDocRef = doc(db, 'users', email);
-      const userDoc = await getDoc(userDocRef);
-      if(userDoc.exists()){
-         throw new Error('User already exists');
-      }
+  const existingUserDoc = await getDoc(doc(usersCollection, email));
+  if (existingUserDoc.exists()) {
+    throw new Error('User already exists');
   }
 
   const newUser: Omit<User, 'id'> = {
@@ -86,7 +94,7 @@ export async function createUser(email: string, password?: string): Promise<User
 }
 
 export async function getAreas(): Promise<Area[]> {
-  const snapshot = await getDocs(areasCollection);
+  const snapshot = await getDocs(query(areasCollection));
   const areas: Area[] = [];
   snapshot.forEach(doc => {
     const data = doc.data();
@@ -144,7 +152,8 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
 export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<Area | null> {
   const docRef = doc(db, 'areas', id);
   await updateDoc(docRef, data);
-  return getAreaById(id);
+  const updatedDoc = await getDoc(docRef);
+  return updatedDoc.exists() ? ({ id: updatedDoc.id, ...updatedDoc.data() } as Area) : null;
 }
 
 export async function deleteArea(id: string): Promise<boolean> {
@@ -189,7 +198,8 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
             });
         });
 
-        return getAreaById(areaId);
+        const updatedDoc = await getDoc(areaRef);
+        return updatedDoc.exists() ? ({ id: updatedDoc.id, ...updatedDoc.data() } as Area) : null;
     } catch (e) {
         console.error("Transaction failed: ", e);
         return null;
