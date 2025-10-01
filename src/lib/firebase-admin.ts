@@ -1,3 +1,4 @@
+
 import * as admin from 'firebase-admin';
 
 let adminApp: admin.app.App | undefined;
@@ -13,19 +14,19 @@ function initializeAdmin() {
 
   const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-  if (serviceAccountString) {
-    try {
-      const serviceAccount = JSON.parse(serviceAccountString);
-      adminApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-      });
-      adminDb = admin.firestore();
-    } catch (error) {
-      console.error('Error parsing FIREBASE_SERVICE_ACCOUNT or initializing Firebase Admin:', error);
+  try {
+    if (serviceAccountString) {
+        const serviceAccount = JSON.parse(serviceAccountString);
+        adminApp = admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+        });
+    } else {
+        // This is for local development and other environments where GOOGLE_APPLICATION_CREDENTIALS might be set.
+        adminApp = admin.initializeApp();
     }
-  } else {
-    // This warning is crucial for local development.
-    console.warn('FIREBASE_SERVICE_ACCOUNT is not set. Firebase Admin features that require auth (like setting custom claims) will be disabled.');
+    adminDb = admin.firestore();
+  } catch (error) {
+    console.error('Failed to initialize Firebase Admin SDK:', error);
   }
 }
 
