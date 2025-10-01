@@ -1,19 +1,45 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
-      // Authenticated users can read their own user document.
-      allow read: if request.auth.uid == userId;
-      // Write access is restricted. 
-      // For now, we allow admins to write, but will need a more secure rule if user management is expanded.
-      // We are preventing reads on other users to avoid recursive loops in rules.
-      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    
+    // --- FUNÇÕES GLOBAIS (para facilitar a leitura) ---
+    
+    // Função que verifica se o usuário está logado.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Função que verifica se o usuário é um administrador.
+    // Ela busca o documento do próprio usuário e checa se o campo 'role' é 'admin'.
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // --- REGRAS PARA A COLEÇÃO 'users' ---
+
+    match /users/{userId} {
+      // LEITURA (read):
+      // - Um usuário pode ler seu próprio perfil.
+      // - Um admin pode ler o perfil de qualquer usuário.
+      // Isso impede que usuários comuns listem todos os outros usuários.
+      allow read: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
+      
+      // ESCRITA (write - create, update, delete):
+      // - Apenas administradores podem criar, editar ou apagar documentos de usuários.
+      allow write: if isAdmin();
+    }
+    
+    // --- REGRAS PARA A COLEÇÃO 'cana_data' ---
+
     match /cana_data/{document=**} {
-      // Any authenticated user can read and write to the cana_data collection.
-      // The UI logic in the app restricts specific actions (like adding/deleting areas) based on user role.
-      allow read, write: if request.auth != null;
+      // LEITURA, CRIAÇÃO e ATUALIZAÇÃO:
+      // - Qualquer usuário logado pode ler, criar e editar dados.
+      allow read, create, update: if isSignedIn();
+      
+      // EXCLUSÃO:
+      // - Apenas administradores podem deletar dados.
+      allow delete: if isAdmin();
     }
   }
 }
