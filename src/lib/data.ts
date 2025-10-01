@@ -13,13 +13,17 @@ import {
   where,
   Timestamp,
   runTransaction,
+  orderBy,
+  limit,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Area, Inspection, User } from '@/lib/types';
+import type { Area, Inspection, User, AreaWithLastInspection } from '@/lib/types';
 import { add, format } from 'date-fns';
 
 const usersCollection = collection(db, 'users');
 const areasCollection = collection(db, 'areas');
+const inspectionsCollection = collection(db, 'vistorias');
 
 async function seedInitialUsers() {
     const adminUserRef = doc(usersCollection, 'admin@canacontrol.com');
@@ -93,7 +97,7 @@ export async function createUser(email: string, password?: string): Promise<User
   return { ...newUser, id: email };
 }
 
-export async function getAreas(): Promise<Area[]> {
+export async function getAreas(): Promise<AreaWithLastInspection[]> {
   const snapshot = await getDocs(query(areasCollection));
   const areas: Area[] = [];
   snapshot.forEach(doc => {
@@ -104,13 +108,18 @@ export async function getAreas(): Promise<Area[]> {
         // Firestore may store dates as Timestamps, convert them to string
         plantingDate: data.plantingDate instanceof Timestamp ? data.plantingDate.toDate().toISOString().split('T')[0] : data.plantingDate,
         nextInspectionDate: data.nextInspectionDate instanceof Timestamp ? data.nextInspectionDate.toDate().toISOString().split('T')[0] : data.nextInspectionDate,
-        inspections: data.inspections?.map((insp: any) => ({
-            ...insp,
-            date: insp.date instanceof Timestamp ? insp.date.toDate().toISOString().split('T')[0] : insp.date,
-        })) || []
     } as Area);
   });
-  return areas.sort((a,b) => new Date(a.nextInspectionDate).getTime() - new Date(b.nextInspectionDate).getTime());
+  
+  const areasWithInspections: AreaWithLastInspection[] = await Promise.all(areas.map(async (area) => {
+    const q = query(inspectionsCollection, where("areaId", "==", area.id), orderBy("date", "desc"), limit(1));
+    const inspectionSnapshot = await getDocs(q);
+    const lastInspection = inspectionSnapshot.empty ? null : inspectionSnapshot.docs[0].data() as Inspection;
+    return { ...area, inspections: lastInspection ? [lastInspection] : [] };
+  }));
+
+
+  return areasWithInspections.sort((a,b) => new Date(a.nextInspectionDate).getTime() - new Date(b.nextInspectionDate).getTime());
 }
 
 export async function getAreaById(id: string): Promise<Area | undefined> {
@@ -124,24 +133,19 @@ export async function getAreaById(id: string): Promise<Area | undefined> {
         id: docSnap.id,
         plantingDate: data.plantingDate instanceof Timestamp ? data.plantingDate.toDate().toISOString().split('T')[0] : data.plantingDate,
         nextInspectionDate: data.nextInspectionDate instanceof Timestamp ? data.nextInspectionDate.toDate().toISOString().split('T')[0] : data.nextInspectionDate,
-        inspections: data.inspections?.map((insp: any) => ({
-            ...insp,
-            date: insp.date instanceof Timestamp ? insp.date.toDate().toISOString().split('T')[0] : insp.date,
-        })) || []
     } as Area;
   } else {
     return undefined;
   }
 }
 
-export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status' | 'inspections'>): Promise<Area> {
+export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status'>): Promise<Area> {
   const nextInspectionDate = format(add(new Date(data.plantingDate), { days: 90 }), 'yyyy-MM-dd');
 
   const newAreaData = {
     ...data,
     nextInspectionDate,
     status: 'Agendada',
-    inspections: [],
   };
 
   const docRef = await addDoc(areasCollection, newAreaData);
@@ -157,51 +161,48 @@ export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): P
 }
 
 export async function deleteArea(id: string): Promise<boolean> {
-  const docRef = doc(db, 'areas', id);
-  await deleteDoc(docRef);
+   const batch = writeBatch(db);
+   
+   const areaRef = doc(db, 'areas', id);
+   batch.delete(areaRef);
+
+   const q = query(inspectionsCollection, where("areaId", "==", id));
+   const inspectionsSnapshot = await getDocs(q);
+   inspectionsSnapshot.forEach((doc) => {
+       batch.delete(doc.ref);
+   });
+
+   await batch.commit();
+
   return true;
 }
 
-export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id'>): Promise<Area | null> {
+export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<void> {
     
     try {
         const areaRef = doc(db, "areas", areaId);
 
-        await runTransaction(db, async (transaction) => {
-            const areaDoc = await transaction.get(areaRef);
-            if (!areaDoc.exists()) {
-                throw "Document does not exist!";
-            }
+        const newInspection: Omit<Inspection, 'id'> = {
+            ...inspectionData,
+            areaId: areaId,
+        };
 
-            const newInspection: Inspection = {
-                ...inspectionData,
-                id: `insp_${Date.now()}`,
-            };
-            
-            const currentInspections = areaDoc.data().inspections || [];
-            const newInspections = [...currentInspections, newInspection];
-            
-            let newStatus = areaDoc.data().status;
-            let newNextInspectionDate = areaDoc.data().nextInspectionDate;
+        const inspectionRef = await addDoc(inspectionsCollection, newInspection);
+        
+        let newStatus: Area['status'] = 'Pendente';
+        let newNextInspectionDate = format(add(new Date(inspectionData.date), { days: 20 }), 'yyyy-MM-dd');
 
-            if (inspectionData.atSize) {
-                newStatus = 'Concluída';
-            } else {
-                newStatus = 'Pendente';
-                newNextInspectionDate = format(add(new Date(inspectionData.date), { days: 20 }), 'yyyy-MM-dd');
-            }
+        if (inspectionData.atSize) {
+            newStatus = 'Concluída';
+        }
 
-            transaction.update(areaRef, { 
-                inspections: newInspections,
-                status: newStatus,
-                nextInspectionDate: newNextInspectionDate,
-            });
+        await updateDoc(areaRef, { 
+            status: newStatus,
+            nextInspectionDate: newNextInspectionDate,
         });
 
-        const updatedDoc = await getDoc(areaRef);
-        return updatedDoc.exists() ? ({ id: updatedDoc.id, ...updatedDoc.data() } as Area) : null;
     } catch (e) {
         console.error("Transaction failed: ", e);
-        return null;
+        throw e;
     }
 }

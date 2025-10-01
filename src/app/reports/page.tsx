@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { getAreas } from '@/lib/data';
-import type { Area, AreaStatus } from '@/lib/types';
+import type { Area, AreaStatus, AreaWithLastInspection } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
@@ -21,7 +21,7 @@ export type ReportFiltersState = {
 };
 
 export default function ReportsPage() {
-  const [areas, setAreas] = useState<Area[]>([]);
+  const [areas, setAreas] = useState<AreaWithLastInspection[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();

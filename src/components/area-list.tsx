@@ -1,8 +1,8 @@
-import type { Area } from '@/lib/types';
+import type { AreaWithLastInspection } from '@/lib/types';
 import { AreaCard } from './area-card';
 
 interface AreaListProps {
-  areas: Area[];
+  areas: AreaWithLastInspection[];
 }
 
 export function AreaList({ areas }: AreaListProps) {

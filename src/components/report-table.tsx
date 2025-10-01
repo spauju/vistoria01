@@ -9,12 +9,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { Area } from '@/lib/types';
+import type { AreaWithLastInspection } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface ReportTableProps {
-  areas: Area[];
+  areas: AreaWithLastInspection[];
 }
 
 export function ReportTable({ areas }: ReportTableProps) {
@@ -67,7 +67,8 @@ export function ReportTable({ areas }: ReportTableProps) {
               <TableCell>
                 <Badge variant={getStatusVariant(area.status)}>{area.status}</Badge>
               </TableCell>
-              <TableCell className='text-right'>{area.inspections.length}</TableCell>
+              {/* This might be inaccurate now as we only fetch the last one */}
+              <TableCell className='text-right'>{area.inspections.length > 0 ? '1+' : 0}</TableCell>
             </TableRow>
           ))}
         </TableBody>

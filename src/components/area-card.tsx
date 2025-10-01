@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { Area } from '@/lib/types';
+import type { AreaWithLastInspection } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { CalendarDays, Sprout, ClipboardList, Ruler, Eye } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -19,7 +19,7 @@ import { InspectAreaDialog } from './inspect-area-dialog';
 import { cn } from '@/lib/utils';
 
 interface AreaCardProps {
-  area: Area;
+  area: AreaWithLastInspection;
 }
 
 export function AreaCard({ area }: AreaCardProps) {
@@ -28,7 +28,7 @@ export function AreaCard({ area }: AreaCardProps) {
   const today = new Date();
   today.setHours(0,0,0,0);
   const daysUntilInspection = differenceInDays(nextInspectionDate, today);
-  const lastInspection = area.inspections.length > 0 ? area.inspections[area.inspections.length - 1] : null;
+  const lastInspection = area.inspections.length > 0 ? area.inspections[0] : null;
 
 
   const getStatusVariant = () => {

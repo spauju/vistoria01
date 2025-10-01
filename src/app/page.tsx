@@ -4,13 +4,13 @@ import { getAreas } from '@/lib/data';
 import { Header } from '@/components/header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AreaList } from '@/components/area-list';
-import type { Area } from '@/lib/types';
+import type { AreaWithLastInspection } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Home() {
-  const [areas, setAreas] = useState<Area[]>([]);
+  const [areas, setAreas] = useState<AreaWithLastInspection[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -69,13 +69,13 @@ export default function Home() {
             <TabsTrigger value="completed">Concluídas</TabsTrigger>
           </TabsList>
           <TabsContent value="scheduled">
-            <AreaList areas={scheduled as Area[]} />
+            <AreaList areas={scheduled} />
           </TabsContent>
           <TabsContent value="pending">
-            <AreaList areas={pending as Area[]} />
+            <AreaList areas={pending} />
           </TabsContent>
           <TabsContent value="completed">
-            <AreaList areas={completed as Area[]} />
+            <AreaList areas={completed} />
           </TabsContent>
         </Tabs>
       </main>

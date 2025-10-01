@@ -1,5 +1,6 @@
 export type Inspection = {
   id: string;
+  areaId: string;
   date: string;
   heightCm: number;
   observations: string;
@@ -15,8 +16,16 @@ export type Area = {
   plantingDate: string;
   nextInspectionDate: string;
   status: AreaStatus;
-  inspections: Inspection[];
 };
+
+export type AreaWithInspections = Area & {
+    inspections: Inspection[];
+}
+
+export type AreaWithLastInspection = Area & {
+    inspections: Inspection[]; // This will only contain the last inspection
+}
+
 
 export type UserRole = 'admin' | 'technician';
 
