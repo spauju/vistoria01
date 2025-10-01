@@ -94,11 +94,10 @@ export async function createUser(email: string, password?: string): Promise<User
 
 
 export async function getAreas(): Promise<AreaWithLastInspection[]> {
-  const snapshot = await getDocs(query(vistoriasCollection, where('areaId', '==', undefined)));
+  const snapshot = await getDocs(query(vistoriasCollection, where('areaId', '==', null)));
   const areas: Area[] = [];
   snapshot.forEach(doc => {
     const data = doc.data();
-    // This check is now implicit in the query
     areas.push({
         ...data,
         id: doc.id,
@@ -146,7 +145,7 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
     id: newDocRef.id, // we add the id to the document itself
     nextInspectionDate,
     status: 'Agendada',
-    // We don't set areaId, so it is undefined, distinguishing it from an inspection
+    areaId: null, // Mark this document as an area
   };
 
   await setDoc(newDocRef, newAreaData);
