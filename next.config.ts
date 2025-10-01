@@ -30,13 +30,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  webpack: (config, { isServer }) => {
-    // Adicione a configuração do Turbopack aqui
-    if (!isServer) {
-      // Exemplo de configuração do Turbopack para o cliente
-    }
-    return config;
-  }
 };
 
 export default nextConfig;
