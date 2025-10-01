@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useActionState, type ReactNode } from 'react';
+import { useState, useEffect, useTransition, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -50,10 +50,8 @@ interface AddAreaDialogProps {
 
 export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
-
-  const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
-  const [state, formAction, isPending] = useActionState(action, { message: '', errors: {} });
 
   const form = useForm<AreaFormValues>({
     resolver: zodResolver(areaSchema),
@@ -70,23 +68,28 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
         },
   });
 
-  // A função `handleSubmit` agora só valida. A `formAction` é chamada pelo `action` do form.
-  const onSubmit = form.handleSubmit(() => {});
+  const onSubmit = (data: AreaFormValues) => {
+    const formData = new FormData();
+    formData.append('sectorLote', data.sectorLote);
+    formData.append('plots', data.plots);
+    formData.append('plantingDate', format(data.plantingDate, 'yyyy-MM-dd'));
 
-  useEffect(() => {
-    if (state.message && !isPending) {
-        toast({
-            title: area ? 'Atualização de Área' : 'Cadastro de Área',
-            description: state.message,
-            variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
-        });
-        if (!state.errors || Object.keys(state.errors).length === 0) {
-            setOpen(false);
-            form.reset();
-        }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[state, isPending]);
+    startTransition(async () => {
+      const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
+      const state = await action({ message: '', errors: {} }, formData);
+
+      toast({
+        title: area ? 'Atualização de Área' : 'Cadastro de Área',
+        description: state.message,
+        variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
+      });
+
+      if (!state.errors || Object.keys(state.errors).length === 0) {
+        setOpen(false);
+        form.reset();
+      }
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -99,7 +102,7 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form action={formAction} onSubmit={onSubmit} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="sectorLote"
@@ -132,26 +135,24 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Data de Fim de Plantio</FormLabel>
-                   {/* Hidden input to pass date to server action */}
-                  <FormControl>
-                    <input type="hidden" {...form.register('plantingDate')} value={field.value ? format(field.value, 'yyyy-MM-dd') : ''} />
-                  </FormControl>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button
-                        variant={'outline'}
-                        className={cn(
-                          'w-full pl-3 text-left font-normal',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                      >
-                        {field.value ? (
-                          format(field.value, 'PPP', { locale: ptBR })
-                        ) : (
-                          <span>Escolha uma data</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
+                       <FormControl>
+                        <Button
+                          variant={'outline'}
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, 'PPP', { locale: ptBR })
+                          ) : (
+                            <span>Escolha uma data</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
