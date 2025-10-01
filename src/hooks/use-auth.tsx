@@ -30,20 +30,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     if (fbUser) {
         // Force refresh to get custom claims if any.
-        const token = await fbUser.getIdToken(true);
+        await fbUser.getIdToken(true);
         const idTokenResult = await fbUser.getIdTokenResult();
         // The role is stored in the custom claims. Default to 'technician' if not present.
         const userRole = (idTokenResult.claims.role || 'technician') as User['role'];
         
         setFirebaseUser(fbUser);
-        Cookies.set('token', token, { secure: true, sameSite: 'strict' });
-        Cookies.set('uid', fbUser.uid, { secure: true, sameSite: 'strict' });
-
-        // Ensure user document exists in Firestore.
-        // This function now correctly passes the role to be stored.
+        
+        // This function creates the user in firestore if it does not exist.
+        // We pass the role from the token to be stored.
         const appUser = await ensureUserExists(fbUser.uid, fbUser.email, fbUser.displayName, userRole);
         
-        // We set the user object with the role from the token, which is the source of truth.
+        // We set the final user object with the role from the token, which is the source of truth,
+        // overriding whatever may be in the database document.
         setUser({ ...appUser, role: userRole });
         
         if (pathname === '/login' || pathname === '/rules') {
@@ -52,8 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
         setFirebaseUser(null);
         setUser(null);
-        Cookies.remove('token');
-        Cookies.remove('uid');
         
         if (pathname !== '/login' && pathname !== '/rules') {
             router.push('/login');
