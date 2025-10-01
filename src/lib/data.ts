@@ -16,6 +16,8 @@ import {
   orderBy,
   addDoc,
 } from 'firebase/firestore';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
+import { adminApp } from './firebase-admin';
 import { db } from '@/lib/firebase';
 import type { Area, Inspection, User, AreaWithLastInspection } from '@/lib/types';
 import { add, format } from 'date-fns';
@@ -156,8 +158,22 @@ export async function dbCreateUser(uid: string, email: string, name: string, rol
   const userDocRef = doc(usersCollection, uid);
   const existingUserDoc = await getDoc(userDocRef);
   
+  // Set custom claims for role-based access
+  if (adminApp) {
+    const auth = getAdminAuth(adminApp);
+    const claims = role === 'admin' ? { admin: true } : {};
+    await auth.setCustomUserClaims(uid, claims);
+  } else {
+    console.warn('Firebase Admin SDK not initialized. Cannot set custom claims.');
+  }
+
   if (existingUserDoc.exists()) {
     const user = { id: existingUserDoc.id, ...existingUserDoc.data() } as User;
+    // If user exists, maybe update the role in DB as well
+    if (user.role !== role) {
+        await setDoc(userDocRef, { role }, { merge: true });
+        user.role = role;
+    }
     return user;
   }
 

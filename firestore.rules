@@ -2,25 +2,39 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    // --- FUNÇÕES GLOBAIS ---
+
+    // Função que verifica se o usuário está logado.
+    function isSignedIn() {
+      return request.auth != null;
     }
-    
+
+    // Função que verifica se o usuário tem a custom claim 'admin'.
     function isAdmin() {
-      return getUserData().role == 'admin';
+      return isSignedIn() && request.auth.token.admin == true;
     }
+
+    // --- REGRAS PARA A COLEÇÃO 'users' ---
 
     match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
-      allow create: if isAdmin();
+      // LEITURA: Qualquer usuário autenticado pode ler os perfis (para listar técnicos, etc.).
+      allow read: if isSignedIn();
+      
+      // ATUALIZAÇÃO: Apenas o próprio usuário pode atualizar seu perfil.
+      allow update: if isSignedIn() && request.auth.uid == userId;
+
+      // CRIAÇÃO E EXCLUSÃO: Apenas administradores.
+      allow create, delete: if isAdmin();
     }
+    
+    // --- REGRAS PARA A COLEÇÃO 'cana_data' ---
 
     match /cana_data/{document=**} {
-      // Allow read/write for any authenticated user.
-      // The UI and server actions already restrict specific actions (like delete) based on role.
-      // This rule avoids complex cross-collection queries in rules, which cause "Missing or insufficient permissions".
-      allow read, write: if request.auth != null;
+      // LEITURA E ATUALIZAÇÃO: Qualquer usuário autenticado pode ler e atualizar.
+      allow read, update: if isSignedIn();
+      
+      // CRIAÇÃO E EXCLUSÃO: Apenas administradores.
+      allow create, delete: if isAdmin();
     }
   }
 }
