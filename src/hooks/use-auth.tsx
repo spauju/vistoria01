@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth';
 import { app } from '@/lib/firebase';
-import { getUserById, createUser } from '@/lib/data';
+import { getUserById, dbCreateUser } from '@/lib/data';
 import type { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // If user exists in Auth but not in DB, create them.
             const role = fbUser.email === 'admin@canacontrol.com' ? 'admin' : 'technician';
             const name = fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário';
-            appUser = await createUser(fbUser.uid, fbUser.email!, name, role);
+            appUser = await dbCreateUser(fbUser.uid, fbUser.email!, name, role);
         }
         setUser(appUser || null);
 

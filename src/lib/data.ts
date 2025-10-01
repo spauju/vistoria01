@@ -14,6 +14,7 @@ import {
   writeBatch,
   limit,
   orderBy,
+  addDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Area, Inspection, User, AreaWithLastInspection } from '@/lib/types';
@@ -40,44 +41,17 @@ export async function getUserById(uid: string): Promise<User | undefined> {
   if (userDoc.exists()) {
     return { id: userDoc.id, ...userDoc.data() } as User;
   } else {
-    // Fallback for users that might not have a doc yet, though this should be handled on signup.
-    // The role is the most critical part. Let's provide a default.
-    return {
-        id: uid,
-        email: 'Usuário não encontrado',
-        name: 'Usuário',
-        role: 'technician' // Default to the more restrictive role.
-    };
+    return undefined;
   }
 }
 
 export async function createUser(uid: string, email: string, name: string, role: 'admin' | 'technician'): Promise<User> {
-  const existingUserDoc = await getDoc(doc(usersCollection, uid));
-  if (existingUserDoc.exists()) {
-    // Optionally update user info here if it can change
-    const user = existingUserDoc.data() as User;
-    return user;
-  }
-
   const newUser: Omit<User, 'id'> = {
     email,
     name,
     role,
   };
-
   await setDoc(doc(usersCollection, uid), newUser);
-
-  // Seed initial users if they match
-  if(email === "admin@canacontrol.com" && !existingUserDoc.exists()){
-     await setDoc(doc(usersCollection, uid), {email, name: "Admin", role: "admin"});
-     return {id: uid, email, name: "Admin", role: "admin"};
-  }
-  if(email === "tech@canacontrol.com" && !existingUserDoc.exists()){
-     await setDoc(doc(usersCollection, uid), {email, name: "Técnico", role: "technician"});
-     return {id: uid, email, name: "Técnico", role: "technician"};
-  }
-
-
   return { ...newUser, id: uid };
 }
 
@@ -209,9 +183,20 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
   return { id: userDoc.id, ...userDoc.data() } as User;
 }
 
-export async function createUserAction(prevState: any, formData: FormData) {
-  // This function is in actions.ts, but let's assume it should be here.
-  // It should call the createUser function above.
-  // For now, I will leave the existing logic in actions.ts and just correct the user lookup.
-  return { message: "Função não implementada aqui.", errors: {}};
+export async function dbCreateUser(uid: string, email: string, name: string, role: 'admin' | 'technician'): Promise<User> {
+  const existingUserDoc = await getDoc(doc(usersCollection, uid));
+  if (existingUserDoc.exists()) {
+    // Optionally update user info here if it can change
+    const user = existingUserDoc.data() as User;
+    return user;
+  }
+
+  const newUser: Omit<User, 'id'> = {
+    email,
+    name,
+    role,
+  };
+
+  await setDoc(doc(usersCollection, uid), newUser);
+  return { ...newUser, id: uid };
 }
