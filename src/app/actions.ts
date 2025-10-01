@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById, dbCreateUser, getUserById } from '@/lib/data';
-import { add, format } from 'date-fns';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
 import { cookies } from 'next/headers';
 
@@ -31,7 +30,7 @@ export async function addAreaAction(prevState: any, formData: FormData) {
     
     await dbAddArea(validatedFields.data);
     revalidatePath('/');
-    return { message: 'Área adicionada com sucesso.', errors: {} };
+    return { message: 'Área adicionada com sucesso (Simulado).', errors: {} };
   } catch (e) {
     console.error(e);
     return { message: 'Falha ao adicionar área.', errors: {} };
@@ -53,12 +52,9 @@ export async function updateAreaAction(areaId: string, prevState: any, formData:
       };
     }
     
-    const plantingDate = new Date(validatedFields.data.plantingDate);
-    const nextInspectionDate = format(add(plantingDate, { days: 90 }), 'yyyy-MM-dd');
-    
-    await dbUpdateArea(areaId, { ...validatedFields.data, nextInspectionDate });
+    await dbUpdateArea(areaId, validatedFields.data );
     revalidatePath('/');
-    return { message: 'Área atualizada com sucesso.', errors: {} };
+    return { message: 'Área atualizada com sucesso (Simulado).', errors: {} };
   } catch (e) {
     return { message: 'Falha ao atualizar área.', errors: {} };
   }
@@ -66,31 +62,18 @@ export async function updateAreaAction(areaId: string, prevState: any, formData:
 
 export async function deleteAreaAction(areaId: string) {
   try {
-    const idToken = cookies().get('idToken')?.value;
-
-    if (!idToken) {
-       return { message: 'Ação não autorizada. Token de autenticação não encontrado.' };
-    }
+    const user = await getUserById(cookies().get('uid')?.value || '');
     
-    const { adminApp } = await import('@/lib/firebase-admin');
-    const { getAuth } = await import('firebase-admin/auth');
-
-    if (!adminApp) {
-       return { message: 'Ação não autorizada. O serviço de administração não está disponível.' };
-    }
-
-    const decodedToken = await getAuth(adminApp).verifyIdToken(idToken);
-
-    if (decodedToken.admin !== true) {
+    if (user?.role !== 'admin') {
       return { message: 'Ação não autorizada. Apenas administradores podem excluir áreas.' };
     }
 
     await dbDeleteArea(areaId);
     revalidatePath('/');
-    return { message: 'Área excluída com sucesso.' };
+    return { message: 'Área excluída com sucesso (Simulado).' };
   } catch (e: any) {
     console.error('Falha ao excluir área:', e);
-    return { message: e.code === 'permission-denied' ? 'Permissão negada pelo Firestore.' : 'Falha ao excluir área. Verifique suas permissões.' };
+    return { message: 'Falha ao excluir área.' };
   }
 }
 
@@ -122,7 +105,7 @@ export async function addInspectionAction(areaId: string, prevState: any, formDa
 
         await dbAddInspection(areaId, validatedFields.data);
         revalidatePath('/');
-        return { message: 'Vistoria adicionada com sucesso.', errors: {} };
+        return { message: 'Vistoria adicionada com sucesso (Simulado).', errors: {} };
     } catch (e) {
         return { message: 'Falha ao adicionar vistoria.', errors: {} };
     }
@@ -130,9 +113,9 @@ export async function addInspectionAction(areaId: string, prevState: any, formDa
 
 export async function rescheduleInspectionAction(areaId: string, newDate: Date) {
     try {
-        await dbUpdateArea(areaId, { nextInspectionDate: format(newDate, 'yyyy-MM-dd') });
+        await dbUpdateArea(areaId, { nextInspectionDate: newDate.toISOString().split('T')[0] });
         revalidatePath('/');
-        return { message: 'Vistoria reagendada com sucesso.' };
+        return { message: 'Vistoria reagendada com sucesso (Simulado).' };
     } catch (e) {
         return { message: 'Falha ao reagendar vistoria.' };
     }
@@ -178,54 +161,21 @@ export async function createUserAction(prevState: any, formData: FormData) {
     };
   }
 
-  // First, verify if the user making the request is an admin
-  const idToken = cookies().get('idToken')?.value;
-  
-  if (!idToken) {
-    return { message: 'Ação não autorizada. Token inválido.', errors: {}};
+  const user = await getUserById(cookies().get('uid')?.value || '');
+  if (user?.role !== 'admin') {
+      return { message: 'Ação não autorizada. Apenas administradores podem criar usuários.', errors: {}};
   }
-  
-  const { adminApp } = await import('@/lib/firebase-admin');
-  const { getAuth } = await import('firebase-admin/auth');
-
-  if (!adminApp) {
-      return { message: 'Ação não autorizada.', errors: {}};
-  }
-  
-  try {
-    const decodedToken = await getAuth(adminApp).verifyIdToken(idToken);
-    if(decodedToken.admin !== true) {
-        return { message: 'Ação não autorizada. Apenas administradores podem criar usuários.', errors: {}};
-    }
-  } catch (error) {
-    return { message: 'Ação não autorizada. Token inválido.', errors: {}};
-  }
-
   
   const { email } = validatedFields.data;
+  const name = email.split('@')[0];
+  const role = 'technician'; 
   
   try {
-    const auth = getAuth(adminApp);
-    const userRecord = await auth.createUser({
-        email: email,
-        password: formData.get('password') as string,
-    });
-    
-    const { uid } = userRecord;
-    const name = email.split('@')[0];
-    // New users are always technicians by default.
-    const role = 'technician'; 
-    
-    await dbCreateUser(uid, email, name, role);
-
-    revalidatePath('/users'); // Or wherever you list users
-    return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
+    await dbCreateUser(email, name, role);
+    revalidatePath('/users'); 
+    return { message: `Usuário ${email} criado com sucesso como técnico (Simulado).`, errors: {} };
   } catch (error: any) {
     let message = 'Falha ao criar usuário.';
-    if (error.code === 'auth/email-already-exists') {
-       message = 'Este email já está em uso.';
-    }
-    console.error("Create user error:", error);
     return { message, errors: { email: [message] } };
   }
 }

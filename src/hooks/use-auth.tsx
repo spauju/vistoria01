@@ -31,8 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       if (fbUser) {
         setFirebaseUser(fbUser);
-        const token = await fbUser.getIdToken(true);
-        Cookies.set('idToken', token, { secure: true, sameSite: 'strict' });
+        Cookies.set('uid', fbUser.uid, { secure: true, sameSite: 'strict' });
         
         // Use a server action to fetch user data securely
         const appUser = await fetchUserAction(fbUser.uid);
@@ -44,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setFirebaseUser(null);
         setUser(null);
-        Cookies.remove('idToken');
+        Cookies.remove('uid');
         if (pathname !== '/login' && pathname !== '/rules') {
             router.push('/login');
         }
@@ -54,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth, router]);
+  }, [auth]);
 
   const signOut = async () => {
     await firebaseSignOut(auth);
