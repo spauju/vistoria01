@@ -1,132 +1,135 @@
-
 'use server';
 
 import type { Area, Inspection, User, AreaWithLastInspection, UserRole } from '@/lib/types';
-import { add } from 'date-fns';
+import { add, toDate } from 'date-fns';
+import { adminDb } from './firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
-// --- Static Data Store ---
+const AREAS_COLLECTION = 'cana_data';
+const USERS_COLLECTION = 'users';
 
-let users: User[] = [
-    { id: 'admin-user', email: 'admin@canacontrol.com', name: 'Admin', role: 'admin' },
-    { id: 'tech-user', email: 'tech@canacontrol.com', name: 'Técnico', role: 'technician' },
-];
-
-let areas: AreaWithLastInspection[] = [
-  {
-    id: 'area-1',
-    sectorLote: 'S1/L01',
-    plots: 'T01, T02',
-    plantingDate: '2024-05-10',
-    nextInspectionDate: '2024-08-08',
-    status: 'Agendada',
-    inspections: [],
-  },
-  {
-    id: 'area-2',
-    sectorLote: 'S2/L05',
-    plots: 'T08',
-    plantingDate: '2024-04-20',
-    nextInspectionDate: '2024-07-19',
-    status: 'Pendente',
-    inspections: [
-      { id: 'insp-1', areaId: 'area-2', date: '2024-06-20', heightCm: 120, observations: 'Crescimento um pouco lento.', atSize: false },
-    ],
-  },
-  {
-    id: 'area-3',
-    sectorLote: 'S1/L02',
-    plots: 'T03, T04, T05',
-    plantingDate: '2024-03-15',
-    nextInspectionDate: '2024-07-05',
-    status: 'Concluída',
-    inspections: [
-        { id: 'insp-2', areaId: 'area-3', date: '2024-06-15', heightCm: 180, observations: 'Tudo OK.', atSize: true },
-    ]
-  },
-];
-
-let nextUserId = 1;
-let nextAreaId = 4;
+// --- Helper Functions ---
+async function getAdminDb() {
+  // This dynamic import ensures admin SDK is only loaded on the server.
+  return adminDb;
+}
 
 // --- User Functions ---
 
-export async function getUserById(idOrEmail: string): Promise<User | undefined> {
-  // In our static data, we can look up by ID or email since we don't have real Firebase UIDs
-  return users.find(user => user.id === idOrEmail || user.email === idOrEmail);
+export async function getUserById(uid: string): Promise<User | null> {
+    if (!uid) return null;
+    const db = await getAdminDb();
+    try {
+        const userDoc = await db.collection(USERS_COLLECTION).doc(uid).get();
+        if (!userDoc.exists) {
+            console.log(`User with uid ${uid} not found in Firestore.`);
+            return null;
+        }
+        return { id: userDoc.id, ...userDoc.data() } as User;
+    } catch (error) {
+        console.error(`Error fetching user ${uid}:`, error);
+        return null;
+    }
 }
 
-export async function dbCreateUser(email: string, name: string, role: UserRole): Promise<User> {
-  const newUser: User = {
-    id: `new-user-${nextUserId++}`,
-    email,
-    name,
-    role,
-  };
-  users.push(newUser);
-  console.log("Simulated creating user:", newUser);
-  return newUser;
+
+export async function dbCreateUser(uid: string, email: string, name: string, role: UserRole): Promise<User> {
+    const db = await getAdminDb();
+    const newUser: User = { id: uid, email, name, role };
+    await db.collection(USERS_COLLECTION).doc(uid).set(newUser);
+    console.log("Created user in Firestore:", newUser);
+    return newUser;
+}
+
+export async function ensureUserExists(uid: string, email: string | null, name: string | null): Promise<User> {
+    const existingUser = await getUserById(uid);
+    if (existingUser) {
+        return existingUser;
+    }
+    // If user does not exist, create them as a technician by default.
+    const userEmail = email || 'no-email@example.com';
+    const userName = name || userEmail.split('@')[0];
+    return await dbCreateUser(uid, userEmail, 'technician');
 }
 
 // --- Area and Inspection Functions ---
 
 export async function getAreas(): Promise<AreaWithLastInspection[]> {
-  // Sort by next inspection date, similar to the original logic
-  return [...areas].sort((a,b) => new Date(a.nextInspectionDate).getTime() - new Date(b.nextInspectionDate).getTime());
+    const db = await getAdminDb();
+    const snapshot = await db.collection(AREAS_COLLECTION).orderBy('nextInspectionDate', 'asc').get();
+    
+    const areas: AreaWithLastInspection[] = [];
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        // Ensure inspections is an array and sort it descending by date
+        const inspections = data.inspections && Array.isArray(data.inspections) ? data.inspections : [];
+        inspections.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        areas.push({
+            id: doc.id,
+            ...data,
+            inspections: inspections.slice(0, 1) // Only return the last inspection
+        } as AreaWithLastInspection);
+    });
+    
+    return areas;
 }
 
-export async function getAreaById(id: string): Promise<Area | undefined> {
-  return areas.find(area => area.id === id);
+export async function getAreaById(id: string): Promise<AreaWithLastInspection | null> {
+    const db = await getAdminDb();
+    const doc = await db.collection(AREAS_COLLECTION).doc(id).get();
+     if (!doc.exists) {
+        return null;
+    }
+    const data = doc.data()!;
+    const inspections = data.inspections && Array.isArray(data.inspections) ? data.inspections : [];
+    inspections.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return {
+        id: doc.id,
+        ...data,
+        inspections: inspections
+    } as AreaWithLastInspection;
 }
 
-export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status'>): Promise<Area> {
-  const nextInspectionDate = add(new Date(data.plantingDate), { days: 90 }).toISOString().split('T')[0];
+export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status' | 'inspections'>): Promise<Area> {
+    const db = await getAdminDb();
+    const nextInspectionDate = add(new Date(data.plantingDate), { days: 90 }).toISOString().split('T')[0];
 
-  const newArea: AreaWithLastInspection = {
-    ...data,
-    id: `area-${nextAreaId++}`,
-    nextInspectionDate,
-    status: 'Agendada' as const,
-    inspections: [],
-  };
+    const newArea: Omit<Area, 'id'> = {
+        ...data,
+        nextInspectionDate,
+        status: 'Agendada' as const,
+        inspections: [],
+    };
 
-  areas.push(newArea);
-  console.log("Simulated adding area:", newArea);
-  return newArea;
+    const docRef = await db.collection(AREAS_COLLECTION).add(newArea);
+    return { ...newArea, id: docRef.id };
 }
 
 export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<Area | null> {
-    const areaIndex = areas.findIndex(a => a.id === id);
-    if (areaIndex > -1) {
-        areas[areaIndex] = { ...areas[areaIndex], ...data };
-        console.log("Simulated updating area:", areas[areaIndex]);
-        return areas[areaIndex];
-    }
-    return null;
+    const db = await getAdminDb();
+    const docRef = db.collection(AREAS_COLLECTION).doc(id);
+    await docRef.update(data);
+    const updatedDoc = await docRef.get();
+    return { id: updatedDoc.id, ...updatedDoc.data() } as Area;
 }
 
 export async function deleteArea(id: string): Promise<boolean> {
-   const areaIndex = areas.findIndex(a => a.id === id);
-   if (areaIndex > -1) {
-       areas.splice(areaIndex, 1);
-       console.log("Simulated deleting area with id:", id);
-       return true;
-   }
-  return false;
+    const db = await getAdminDb();
+    await db.collection(AREAS_COLLECTION).doc(id).delete();
+    return true;
 }
 
 export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<void> {
-    const area = await getAreaById(areaId);
-    if (!area) {
-        throw new Error("Area not found");
-    }
+    const db = await getAdminDb();
+    const areaRef = db.collection(AREAS_COLLECTION).doc(areaId);
 
-    const newInspection: Inspection = {
+    const newInspection: Omit<Inspection, 'areaId'> = {
         ...inspectionData,
         id: `insp-${Date.now()}`,
-        areaId,
     };
     
-    // In a real DB this would be a transaction
     let newStatus: Area['status'] = 'Pendente';
     let newNextInspectionDate = add(new Date(inspectionData.date), { days: 20 }).toISOString().split('T')[0];
 
@@ -134,11 +137,9 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         newStatus = 'Concluída';
     }
     
-    const areaIndex = areas.findIndex(a => a.id === areaId);
-    if (areaIndex > -1) {
-        areas[areaIndex].status = newStatus;
-        areas[areaIndex].nextInspectionDate = newNextInspectionDate;
-        areas[areaIndex].inspections.unshift(newInspection); // Add to beginning
-        console.log("Simulated adding inspection and updating area:", areas[areaIndex]);
-    }
+    await areaRef.update({
+        status: newStatus,
+        nextInspectionDate: newNextInspectionDate,
+        inspections: FieldValue.arrayUnion(newInspection)
+    });
 }

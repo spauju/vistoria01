@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { useState, useEffect } from 'react';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { app } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -38,11 +38,13 @@ export default function LoginPage() {
     }
   };
   
-  // You can pre-fill login for easier testing
-  // useEffect(()=>{
-  //    setEmail("admin@canacontrol.com")
-  //    setPassword("123456")
-  // },[])
+  // Pre-fill for easier testing
+   useEffect(()=>{
+      if (process.env.NODE_ENV === 'development') {
+        // setEmail("admin@canacontrol.com")
+        // setPassword("123456")
+      }
+   },[])
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -96,7 +98,7 @@ export default function LoginPage() {
           </form>
         </CardContent>
          <CardFooter>
-            <p className='text-xs text-muted-foreground mx-auto'>Use admin@canacontrol.com ou tech@canacontrol.com com a senha "123456" para testar.</p>
+            <p className='text-xs text-muted-foreground mx-auto'>Use um utilizador criado ou um dos testes se existirem.</p>
         </CardFooter>
       </Card>
     </div>

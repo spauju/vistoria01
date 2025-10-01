@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth';
 import { app } from '@/lib/firebase';
 import type { User } from '@/lib/types';
@@ -26,34 +26,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setLoading(true);
-      if (fbUser) {
+  const handleAuthStateChange = useCallback(async (fbUser: FirebaseUser | null) => {
+    setLoading(true);
+    if (fbUser) {
+        // Always set firebaseUser and cookie first
         setFirebaseUser(fbUser);
+        const token = await fbUser.getIdToken();
+        Cookies.set('token', token, { secure: true, sameSite: 'strict' });
         Cookies.set('uid', fbUser.uid, { secure: true, sameSite: 'strict' });
-        
-        // Use a server action to fetch user data securely
-        const appUser = await fetchUserAction(fbUser.uid);
-        setUser(appUser || null);
 
+        // Then, fetch the app user profile from our backend
+        const appUser = await fetchUserAction(fbUser.uid, fbUser.email, fbUser.displayName);
+        setUser(appUser);
+        
+        // Redirect if on a public page
         if (pathname === '/login' || pathname === '/rules') {
             router.push('/');
         }
-      } else {
+    } else {
+        // Clear all user state and cookies
         setFirebaseUser(null);
         setUser(null);
+        Cookies.remove('token');
         Cookies.remove('uid');
+        
+        // Redirect to login if not on a public page
         if (pathname !== '/login' && pathname !== '/rules') {
             router.push('/login');
         }
-      }
-      setLoading(false);
-    });
+    }
+    setLoading(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth, router, pathname]);
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, handleAuthStateChange);
     return () => unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth]);
+  }, [handleAuthStateChange]);
 
   const signOut = async () => {
     await firebaseSignOut(auth);

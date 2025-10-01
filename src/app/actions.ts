@@ -2,9 +2,27 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById, dbCreateUser, getUserById } from '@/lib/data';
+import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById, dbCreateUser, getUserById, ensureUserExists } from '@/lib/data';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
 import { cookies } from 'next/headers';
+import { getAuth } from 'firebase-admin/auth';
+import { adminApp } from '@/lib/firebase-admin';
+
+async function checkAdminAuth() {
+    const token = cookies().get('token')?.value;
+    if (!token) {
+        throw new Error('Ação não autorizada: Token não encontrado.');
+    }
+    try {
+        const decodedToken = await getAuth(adminApp).verifyIdToken(token);
+        if (decodedToken.role !== 'admin') {
+            throw new Error('Ação não autorizada: Requer privilégios de administrador.');
+        }
+        return decodedToken;
+    } catch (error) {
+        throw new Error('Ação não autorizada: Token inválido ou expirado.');
+    }
+}
 
 
 const areaSchema = z.object({
@@ -15,6 +33,7 @@ const areaSchema = z.object({
 
 export async function addAreaAction(prevState: any, formData: FormData) {
   try {
+    await checkAdminAuth();
     const validatedFields = areaSchema.safeParse({
       sectorLote: formData.get('sectorLote'),
       plots: formData.get('plots'),
@@ -30,10 +49,10 @@ export async function addAreaAction(prevState: any, formData: FormData) {
     
     await dbAddArea(validatedFields.data);
     revalidatePath('/');
-    return { message: 'Área adicionada com sucesso (Simulado).', errors: {} };
-  } catch (e) {
+    return { message: 'Área adicionada com sucesso.', errors: {} };
+  } catch (e: any) {
     console.error(e);
-    return { message: 'Falha ao adicionar área.', errors: {} };
+    return { message: e.message || 'Falha ao adicionar área.', errors: {} };
   }
 }
 
@@ -54,26 +73,21 @@ export async function updateAreaAction(areaId: string, prevState: any, formData:
     
     await dbUpdateArea(areaId, validatedFields.data );
     revalidatePath('/');
-    return { message: 'Área atualizada com sucesso (Simulado).', errors: {} };
-  } catch (e) {
+    return { message: 'Área atualizada com sucesso.', errors: {} };
+  } catch (e: any) {
     return { message: 'Falha ao atualizar área.', errors: {} };
   }
 }
 
 export async function deleteAreaAction(areaId: string) {
   try {
-    const user = await getUserById(cookies().get('uid')?.value || '');
-    
-    if (user?.role !== 'admin') {
-      return { message: 'Ação não autorizada. Apenas administradores podem excluir áreas.' };
-    }
-
+    await checkAdminAuth();
     await dbDeleteArea(areaId);
     revalidatePath('/');
-    return { message: 'Área excluída com sucesso (Simulado).' };
+    return { message: 'Área excluída com sucesso.' };
   } catch (e: any) {
     console.error('Falha ao excluir área:', e);
-    return { message: 'Falha ao excluir área.' };
+    return { message: e.message || 'Falha ao excluir área.' };
   }
 }
 
@@ -105,8 +119,8 @@ export async function addInspectionAction(areaId: string, prevState: any, formDa
 
         await dbAddInspection(areaId, validatedFields.data);
         revalidatePath('/');
-        return { message: 'Vistoria adicionada com sucesso (Simulado).', errors: {} };
-    } catch (e) {
+        return { message: 'Vistoria adicionada com sucesso.', errors: {} };
+    } catch (e: any) {
         return { message: 'Falha ao adicionar vistoria.', errors: {} };
     }
 }
@@ -115,8 +129,8 @@ export async function rescheduleInspectionAction(areaId: string, newDate: Date) 
     try {
         await dbUpdateArea(areaId, { nextInspectionDate: newDate.toISOString().split('T')[0] });
         revalidatePath('/');
-        return { message: 'Vistoria reagendada com sucesso (Simulado).' };
-    } catch (e) {
+        return { message: 'Vistoria reagendada com sucesso.' };
+    } catch (e: any) {
         return { message: 'Falha ao reagendar vistoria.' };
     }
 }
@@ -149,38 +163,43 @@ const userSchema = z.object({
 
 
 export async function createUserAction(prevState: any, formData: FormData) {
-  const validatedFields = userSchema.safeParse({
-    email: formData.get('email'),
-    password: formData.get('password'),
-  });
+ try {
+    const decodedToken = await checkAdminAuth();
 
-  if (!validatedFields.success) {
-    return {
-      message: 'Por favor, corrija os erros abaixo.',
-      errors: validatedFields.error.flatten().fieldErrors,
-    };
-  }
+    const validatedFields = userSchema.safeParse({
+        email: formData.get('email'),
+        password: formData.get('password'),
+    });
 
-  const user = await getUserById(cookies().get('uid')?.value || '');
-  if (user?.role !== 'admin') {
-      return { message: 'Ação não autorizada. Apenas administradores podem criar usuários.', errors: {}};
-  }
-  
-  const { email } = validatedFields.data;
-  const name = email.split('@')[0];
-  const role = 'technician'; 
-  
-  try {
-    await dbCreateUser(email, name, role);
-    revalidatePath('/users'); 
-    return { message: `Usuário ${email} criado com sucesso como técnico (Simulado).`, errors: {} };
+    if (!validatedFields.success) {
+        return {
+        message: 'Por favor, corrija os erros abaixo.',
+        errors: validatedFields.error.flatten().fieldErrors,
+        };
+    }
+    
+    const { email, password } = validatedFields.data;
+    const name = email.split('@')[0];
+    const role = 'technician'; 
+    
+    const auth = getAuth(adminApp);
+    const userRecord = await auth.createUser({ email, password });
+    await auth.setCustomUserClaims(userRecord.uid, { role });
+    
+    await dbCreateUser(userRecord.uid, email, name, role);
+
+    revalidatePath('/users'); // Assuming you'll have a user management page
+    return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
   } catch (error: any) {
+    console.error("Error creating user:", error);
     let message = 'Falha ao criar usuário.';
+    if (error.code === 'auth/email-already-exists') {
+        message = 'Este email já está em uso.';
+    }
     return { message, errors: { email: [message] } };
   }
 }
 
-// This is the new action to be called from the client-side AuthProvider
-export async function fetchUserAction(uid: string) {
-    return await getUserById(uid);
+export async function fetchUserAction(uid: string, email: string | null, displayName: string | null) {
+    return await ensureUserExists(uid, email, displayName);
 }

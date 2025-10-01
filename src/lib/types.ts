@@ -1,6 +1,6 @@
 export type Inspection = {
   id: string;
-  areaId: string;
+  // areaId is no longer needed as it's a subcollection
   date: string;
   heightCm: number;
   observations: string;
@@ -16,21 +16,20 @@ export type Area = {
   plantingDate: string;
   nextInspectionDate: string;
   status: AreaStatus;
+  inspections: Inspection[]; // Inspections are now an array within the area
 };
 
-export type AreaWithInspections = Area & {
-    inspections: Inspection[];
-}
+export type AreaWithInspections = Area;
 
 export type AreaWithLastInspection = Area & {
-    inspections: Inspection[]; // This will only contain the last inspection
+    // The type is the same, but the data processing will ensure only the last one is present
 }
 
 
 export type UserRole = 'admin' | 'technician';
 
 export type User = {
-    id: string;
+    id: string; // This will be the Firebase Auth UID
     email: string;
     role: UserRole;
     name: string;

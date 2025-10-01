@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Regras para a coleção 'users'
+    match /users/{userId} {
+      // Leitura: O próprio utilizador ou um administrador pode ler.
+      allow read: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      
+      // Escrita: Apenas administradores podem escrever/atualizar perfis (para gestão).
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Regras para a coleção 'cana_data'
+    match /cana_data/{areaId} {
+      // Leitura: Qualquer utilizador autenticado (admin ou técnico) pode ler os dados das áreas.
+      allow read: if request.auth != null;
+
+      // Criação: Apenas administradores podem criar novas áreas.
+      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+
+      // Atualização: 
+      // Admins podem atualizar qualquer campo.
+      // Técnicos podem atualizar, mas não podem alterar 'sectorLote', 'plots', ou 'plantingDate'.
+      // Isto permite que eles adicionem vistorias (atualizando o array de 'inspections' e o 'status').
+      allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+                      (request.auth != null && 
+                       !('sectorLote' in request.resource.data && request.resource.data.sectorLote != resource.data.sectorLote) &&
+                       !('plots' in request.resource.data && request.resource.data.plots != resource.data.plots) &&
+                       !('plantingDate' in request.resource.data && request.resource.data.plantingDate != resource.data.plantingDate));
+      
+      // Exclusão: Apenas administradores podem excluir áreas.
+      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
