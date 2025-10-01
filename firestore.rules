@@ -1,52 +1,40 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- FUNÇÕES DE AJUDA ---
+    // --- FUNÇÕES GLOBAIS ---
     
+    // Função que verifica se o usuário está logado.
     function isSignedIn() {
       return request.auth != null;
     }
-
+    
+    // Função que verifica se o usuário é um administrador usando Custom Claims.
     function isAdmin() {
-      // Verifica se o custom claim 'admin' está presente no token do usuário.
-      // Este claim é definido no backend ao criar/promover um usuário.
       return isSignedIn() && request.auth.token.admin == true;
     }
-
+    
+    // Função para verificar se o ID do usuário da requisição corresponde ao ID do documento.
     function isOwner(userId) {
-      // Verifica se o usuário que faz a requisição é o dono do documento.
       return isSignedIn() && request.auth.uid == userId;
     }
 
     // --- REGRAS PARA A COLEÇÃO 'users' ---
-
     match /users/{userId} {
-      // LEITURA (read):
-      // - Qualquer usuário autenticado pode ler os perfis (para listar técnicos, etc.).
-      // - Um admin também pode ler.
+      // LEITURA: Qualquer usuário autenticado pode ler os perfis (para listar técnicos, etc.).
       allow read: if isSignedIn();
-
-      // ESCRITA (update):
-      // - Um usuário só pode editar seu próprio perfil.
-      // - Um admin pode editar qualquer perfil.
-      allow update: if isOwner(userId) || isAdmin();
       
-      // CRIAÇÃO E EXCLUSÃO:
-      // - Apenas administradores podem criar ou apagar documentos de usuários.
-      allow create, delete: if isAdmin();
+      // ESCRITA (CRIAR, ATUALIZAR, APAGAR): Apenas administradores podem gerenciar usuários.
+      // Usuários individuais não podem se editar diretamente aqui, a lógica de "mudar senha" é feita pela Autenticação do Firebase, não pelo Firestore.
+      allow write: if isAdmin();
     }
     
     // --- REGRAS PARA A COLEÇÃO 'cana_data' ---
-
-    match /cana_data/{documentId} {
-      // LEITURA e ATUALIZAÇÃO:
-      // - Qualquer usuário logado (técnico ou admin) pode ler e atualizar dados.
+    match /cana_data/{document=**} {
+      // LEITURA E ATUALIZAÇÃO: Qualquer usuário logado (técnicos e admins) pode ler e atualizar.
       allow read, update: if isSignedIn();
       
-      // CRIAÇÃO e EXCLUSÃO:
-      // - Apenas administradores podem criar ou deletar dados.
+      // CRIAÇÃO E EXCLUSÃO: Apenas administradores podem criar ou apagar áreas e vistorias.
       allow create, delete: if isAdmin();
     }
   }

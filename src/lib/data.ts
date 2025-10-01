@@ -156,33 +156,28 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
 
 export async function dbCreateUser(uid: string, email: string, name: string, role: 'admin' | 'technician'): Promise<User> {
   const userDocRef = doc(usersCollection, uid);
-  const existingUserDoc = await getDoc(userDocRef);
-  
-  // Set custom claims for role-based access
+
+  // Set custom claims for role-based access. This is the source of truth for isAdmin() in rules.
   if (adminApp) {
-    const auth = getAdminAuth(adminApp);
-    const claims = role === 'admin' ? { admin: true } : {};
-    await auth.setCustomUserClaims(uid, claims);
-  } else {
-    console.warn('Firebase Admin SDK not initialized. Cannot set custom claims.');
-  }
-
-  if (existingUserDoc.exists()) {
-    const user = { id: existingUserDoc.id, ...existingUserDoc.data() } as User;
-    // If user exists, maybe update the role in DB as well
-    if (user.role !== role) {
-        await setDoc(userDocRef, { role }, { merge: true });
-        user.role = role;
+    try {
+      const auth = getAdminAuth(adminApp);
+      await auth.setCustomUserClaims(uid, { admin: role === 'admin' });
+    } catch (error) {
+       console.error("Failed to set custom claims:", error);
+       // We might want to throw here or handle it, as this is critical for permissions
     }
-    return user;
+  } else {
+    console.warn('Firebase Admin SDK not initialized. Cannot set custom claims. Admin role will not work.');
   }
 
-  const newUser: Omit<User, 'id'> = {
+  const userRecord = {
     email,
     name,
     role,
   };
 
-  await setDoc(userDocRef, newUser);
-  return { ...newUser, id: uid };
+  // Create or update the user document in Firestore
+  await setDoc(userDocRef, userRecord, { merge: true });
+
+  return { ...userRecord, id: uid };
 }

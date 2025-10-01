@@ -28,12 +28,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
-        // Store id token in cookie for server actions
-        const token = await fbUser.getIdToken();
+        // Force refresh the token to get custom claims.
+        const token = await fbUser.getIdToken(true);
         Cookies.set('idToken', token);
 
         let appUser = await getUserById(fbUser.uid);
         if (!appUser) {
+            console.log(`Creating user document for ${fbUser.uid}`);
             const role = fbUser.email === 'admin@canacontrol.com' ? 'admin' : 'technician';
             const name = fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário';
             if (fbUser.email) {
