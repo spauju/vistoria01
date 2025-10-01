@@ -49,7 +49,7 @@ export async function ensureUserExists(uid: string, email: string | null, name: 
     // If user does not exist, create them as a technician by default.
     const userEmail = email || 'no-email@example.com';
     const userName = name || userEmail.split('@')[0];
-    return await dbCreateUser(uid, userEmail, 'technician');
+    return await dbCreateUser(uid, userEmail, userName, 'technician');
 }
 
 // --- Area and Inspection Functions ---
