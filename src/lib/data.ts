@@ -68,7 +68,7 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
   } else {
      return {
         id: email,
-        email: email,
+        email: email.split('@')[0],
         name: email.split('@')[0],
         role: 'technician'
     };
@@ -144,7 +144,7 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
     ...data,
     id: newDocRef.id, // we add the id to the document itself
     nextInspectionDate,
-    status: 'Agendada',
+    status: 'Agendada' as const,
     areaId: null, // Mark this document as an area
   };
 
