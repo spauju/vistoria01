@@ -22,7 +22,8 @@ import type { Area, Inspection, User, AreaWithLastInspection } from '@/lib/types
 import { add, format } from 'date-fns';
 
 const usersCollection = collection(db, 'users');
-const areasCollection = collection(db, 'areas');
+// Alterando para usar 'vistorias' como a coleção principal para áreas
+const areasCollection = collection(db, 'vistorias'); 
 const inspectionsCollection = collection(db, 'vistorias');
 
 async function seedInitialUsers() {
@@ -46,15 +47,12 @@ async function seedInitialUsers() {
         });
     }
 }
-// Seed users on startup if they don't exist
-// In a real production app, this would be handled by a setup script
 seedInitialUsers();
 
 export async function getUserByEmail(email: string): Promise<User | undefined> {
   if (!email) {
     return undefined;
   }
-   // Hardcode admin user to ensure correct role assignment
   if (email === 'admin@canacontrol.com') {
     return {
         id: email,
@@ -70,7 +68,6 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
   if (userDoc.exists()) {
     return { id: userDoc.id, ...userDoc.data() } as User;
   } else {
-    // Default to technician role if user is authenticated but not in our DB
      return {
         id: email,
         email: email,
@@ -89,7 +86,7 @@ export async function createUser(email: string, password?: string): Promise<User
   const newUser: Omit<User, 'id'> = {
     email,
     name: email.split('@')[0],
-    role: 'technician', // Always default to technician
+    role: 'technician',
   };
 
   await setDoc(doc(usersCollection, email), newUser);
@@ -97,18 +94,23 @@ export async function createUser(email: string, password?: string): Promise<User
   return { ...newUser, id: email };
 }
 
+// A função agora busca documentos da coleção 'vistorias' que representam áreas.
+// Precisamos de um campo para diferenciar uma área de uma vistoria.
+// Vamos assumir que um documento de área não tem 'areaId'.
 export async function getAreas(): Promise<AreaWithLastInspection[]> {
-  const snapshot = await getDocs(query(areasCollection));
+  const snapshot = await getDocs(query(areasCollection, where('areaId', '==', null)));
   const areas: Area[] = [];
   snapshot.forEach(doc => {
     const data = doc.data();
-    areas.push({
-        ...data,
-        id: doc.id,
-        // Firestore may store dates as Timestamps, convert them to string
-        plantingDate: data.plantingDate instanceof Timestamp ? data.plantingDate.toDate().toISOString().split('T')[0] : data.plantingDate,
-        nextInspectionDate: data.nextInspectionDate instanceof Timestamp ? data.nextInspectionDate.toDate().toISOString().split('T')[0] : data.nextInspectionDate,
-    } as Area);
+    // Filtro para garantir que estamos pegando apenas documentos de área
+    if (!data.areaId) {
+        areas.push({
+            ...data,
+            id: doc.id,
+            plantingDate: data.plantingDate instanceof Timestamp ? data.plantingDate.toDate().toISOString().split('T')[0] : data.plantingDate,
+            nextInspectionDate: data.nextInspectionDate instanceof Timestamp ? data.nextInspectionDate.toDate().toISOString().split('T')[0] : data.nextInspectionDate,
+        } as Area);
+    }
   });
   
   const areasWithInspections: AreaWithLastInspection[] = await Promise.all(areas.map(async (area) => {
@@ -123,7 +125,7 @@ export async function getAreas(): Promise<AreaWithLastInspection[]> {
 }
 
 export async function getAreaById(id: string): Promise<Area | undefined> {
-  const docRef = doc(db, 'areas', id);
+  const docRef = doc(db, 'vistorias', id); // Alterado de 'areas' para 'vistorias'
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
@@ -146,6 +148,7 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
     ...data,
     nextInspectionDate,
     status: 'Agendada',
+    areaId: null, // Adicionando campo para distinguir de uma vistoria
   };
 
   const docRef = await addDoc(areasCollection, newAreaData);
@@ -154,7 +157,7 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
 }
 
 export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<Area | null> {
-  const docRef = doc(db, 'areas', id);
+  const docRef = doc(db, 'vistorias', id); // Alterado de 'areas' para 'vistorias'
   await updateDoc(docRef, data);
   const updatedDoc = await getDoc(docRef);
   return updatedDoc.exists() ? ({ id: updatedDoc.id, ...updatedDoc.data() } as Area) : null;
@@ -163,9 +166,10 @@ export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): P
 export async function deleteArea(id: string): Promise<boolean> {
    const batch = writeBatch(db);
    
-   const areaRef = doc(db, 'areas', id);
+   const areaRef = doc(db, 'vistorias', id); // Alterado de 'areas' para 'vistorias'
    batch.delete(areaRef);
 
+   // Também deleta as vistorias associadas (documentos que têm areaId igual ao id da área)
    const q = query(inspectionsCollection, where("areaId", "==", id));
    const inspectionsSnapshot = await getDocs(q);
    inspectionsSnapshot.forEach((doc) => {
@@ -180,13 +184,14 @@ export async function deleteArea(id: string): Promise<boolean> {
 export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<void> {
     
     try {
-        const areaRef = doc(db, "areas", areaId);
+        const areaRef = doc(db, "vistorias", areaId); // Alterado de 'areas' para 'vistorias'
 
         const newInspection: Omit<Inspection, 'id'> = {
             ...inspectionData,
             areaId: areaId,
         };
 
+        // Adiciona a vistoria na mesma coleção
         const inspectionRef = await addDoc(inspectionsCollection, newInspection);
         
         let newStatus: Area['status'] = 'Pendente';
