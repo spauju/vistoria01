@@ -29,17 +29,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleAuthStateChange = useCallback(async (fbUser: FirebaseUser | null) => {
     setLoading(true);
     if (fbUser) {
-        const token = await fbUser.getIdToken(true); // Force refresh to get custom claims
+        // Force refresh to get custom claims if any.
+        const token = await fbUser.getIdToken(true);
         const idTokenResult = await fbUser.getIdTokenResult();
+        // The role is stored in the custom claims. Default to 'technician' if not present.
         const userRole = (idTokenResult.claims.role || 'technician') as User['role'];
         
         setFirebaseUser(fbUser);
         Cookies.set('token', token, { secure: true, sameSite: 'strict' });
         Cookies.set('uid', fbUser.uid, { secure: true, sameSite: 'strict' });
 
-        // Ensure user document exists in Firestore, now using client SDK
+        // Ensure user document exists in Firestore.
+        // This function now correctly passes the role to be stored.
         const appUser = await ensureUserExists(fbUser.uid, fbUser.email, fbUser.displayName, userRole);
-        setUser(appUser);
+        
+        // We set the user object with the role from the token, which is the source of truth.
+        setUser({ ...appUser, role: userRole });
         
         if (pathname === '/login' || pathname === '/rules') {
             router.push('/');

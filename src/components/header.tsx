@@ -56,7 +56,7 @@ export function Header() {
               className="overflow-hidden rounded-full"
             >
               <Avatar>
-                <AvatarImage src={`https://avatar.vercel.sh/${user?.email}.png`} alt={user?.name} />
+                <AvatarImage src={`https://avatar.vercel.sh/${user?.email}.png`} alt={user?.name ?? ''} />
                 <AvatarFallback>{userInitial}</AvatarFallback>
               </Avatar>
             </Button>

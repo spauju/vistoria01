@@ -181,15 +181,3 @@ export async function createUserAction(prevState: any, formData: FormData) {
     return { message: 'Falha ao criar usuário.', errors: {} };
   }
 }
-
-// This function now uses the client SDK via `ensureUserExists`.
-export async function fetchUserAction(uid: string, email: string | null, displayName: string | null) {
-    try {
-        // We pass 'technician' as the default role for new users.
-        // `ensureUserExists` will only apply this if the user is being created for the first time.
-        return await ensureUserExists(uid, email, displayName, 'technician');
-    } catch (error) {
-        console.error("Error in fetchUserAction:", error);
-        return null;
-    }
-}

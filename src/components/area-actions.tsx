@@ -116,7 +116,7 @@ export function AreaActions({ area }: AreaActionsProps) {
     });
   };
 
-  const canDelete = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin';
 
   return (
     <>
@@ -130,16 +130,18 @@ export function AreaActions({ area }: AreaActionsProps) {
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Ações</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <AddAreaDialog area={area}>
-            <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                <Pencil className="mr-2 h-4 w-4" />
-                <span>Editar</span>
-            </div>
-          </AddAreaDialog>
+          {isAdmin && (
+            <AddAreaDialog area={area}>
+                <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                    <Pencil className="mr-2 h-4 w-4" />
+                    <span>Editar</span>
+                </div>
+            </AddAreaDialog>
+          )}
           {area.status !== 'Concluída' && (
              <RescheduleDialog area={area} />
           )}
-          {canDelete && (
+          {isAdmin && (
             <DropdownMenuItem onSelect={() => setAlertOpen(true)} className="text-destructive focus:text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Excluir
