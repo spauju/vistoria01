@@ -5,7 +5,7 @@ import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, type User as F
 import { app } from '@/lib/firebase';
 import type { User } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
-import { getUserById, ensureUserExists } from '@/lib/data';
+import { getUserById } from '@/lib/data';
 
 
 interface AuthContextType {
@@ -31,19 +31,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setFirebaseUser(fbUser);
         
         // Fetch user profile from Firestore using UID to get the role.
-        // The source of truth for the user's role is the Firestore document.
-        let appUser = await getUserById(fbUser.uid);
+        const appUser = await getUserById(fbUser.uid);
 
-        // If user doesn't exist in Firestore, they can log in, but they won't have any roles.
-        // The admin must create the user document in the database via the app's UI.
-        // We can create a temporary user object so the app doesn't crash.
-        if (!appUser) {
-          // ensureUserExists will create the user if they don't exist, with a default role.
-          // This is useful for the first user (admin) to be able to log in and create others.
-           appUser = await ensureUserExists(fbUser.uid, fbUser.email, fbUser.displayName);
+        if (appUser) {
+          setUser(appUser);
+        } else {
+           // If user is not in the database, they can still be authenticated
+           // but will have no specific role in the app.
+           // They will be treated as non-admin.
+           setUser({
+                id: fbUser.uid,
+                email: fbUser.email || 'no-email',
+                name: fbUser.displayName || 'Anonymous',
+                role: 'technician' // Default to the most restrictive role
+           })
         }
-
-        setUser(appUser);
         
         if (pathname === '/login' || pathname === '/rules') {
             router.push('/');
@@ -58,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth, router, pathname]);
+  }, [router, pathname]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, handleAuthStateChange);
