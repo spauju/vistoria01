@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, type ReactNode, useEffect, useActionState } from 'react';
+import { useState, useEffect, useActionState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -70,14 +70,9 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
         },
   });
 
-  const onSubmit = (data: AreaFormValues) => {
-    const formData = new FormData();
-    formData.append('sectorLote', data.sectorLote);
-    formData.append('plots', data.plots);
-    formData.append('plantingDate', format(data.plantingDate, 'yyyy-MM-dd'));
-    formAction(formData);
-  };
-  
+  // A função `handleSubmit` agora só valida. A `formAction` é chamada pelo `action` do form.
+  const onSubmit = form.handleSubmit(() => {});
+
   useEffect(() => {
     if (state.message && !isPending) {
         toast({
@@ -104,7 +99,7 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form action={formAction} onSubmit={onSubmit} className="space-y-4">
             <FormField
               control={form.control}
               name="sectorLote"
@@ -137,24 +132,26 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Data de Fim de Plantio</FormLabel>
+                   {/* Hidden input to pass date to server action */}
+                  <FormControl>
+                    <input type="hidden" {...form.register('plantingDate')} value={field.value ? format(field.value, 'yyyy-MM-dd') : ''} />
+                  </FormControl>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'PPP', { locale: ptBR })
-                          ) : (
-                            <span>Escolha uma data</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
+                      <Button
+                        variant={'outline'}
+                        className={cn(
+                          'w-full pl-3 text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                      >
+                        {field.value ? (
+                          format(field.value, 'PPP', { locale: ptBR })
+                        ) : (
+                          <span>Escolha uma data</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
