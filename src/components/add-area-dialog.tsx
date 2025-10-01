@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useActionState, type ReactNode, useEffect } from 'react';
+import { useState, useActionState, type ReactNode, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -51,6 +51,7 @@ interface AddAreaDialogProps {
 export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
 
   const form = useForm<AreaFormValues>({
     resolver: zodResolver(areaSchema),
@@ -68,7 +69,7 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   });
 
   const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
-  const [state, formAction, isPending] = useActionState(action, { message: '', errors: {} });
+  const [state, formAction] = useActionState(action, { message: '', errors: {} });
 
   useEffect(() => {
     if (state.message && !isPending) {
@@ -89,7 +90,9 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
     formData.append('sectorLote', data.sectorLote);
     formData.append('plots', data.plots);
     formData.append('plantingDate', format(data.plantingDate, 'yyyy-MM-dd'));
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
