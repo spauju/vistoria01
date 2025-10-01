@@ -12,9 +12,12 @@ export default function RulesPage() {
   const rules = `rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /vistoria/{document=**} {
+    match /cana_data/{document=**} {
       allow read;
       allow write: if request.auth != null;
+    }
+     match /users/{document=**} {
+      allow read;
     }
   }
 }`;

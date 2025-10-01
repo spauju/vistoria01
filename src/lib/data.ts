@@ -22,7 +22,7 @@ import type { Area, Inspection, User, AreaWithLastInspection } from '@/lib/types
 import { add, format } from 'date-fns';
 
 const usersCollection = collection(db, 'users');
-const vistoriasCollection = collection(db, 'vistorias');
+const dataCollection = collection(db, 'cana_data');
 
 async function seedInitialUsers() {
     const adminUserRef = doc(usersCollection, 'admin@canacontrol.com');
@@ -94,7 +94,7 @@ export async function createUser(email: string, password?: string): Promise<User
 
 
 export async function getAreas(): Promise<AreaWithLastInspection[]> {
-  const snapshot = await getDocs(query(vistoriasCollection, where('areaId', '==', null)));
+  const snapshot = await getDocs(query(dataCollection, where('areaId', '==', null)));
   const areas: Area[] = [];
   snapshot.forEach(doc => {
     const data = doc.data();
@@ -107,7 +107,7 @@ export async function getAreas(): Promise<AreaWithLastInspection[]> {
   });
   
   const areasWithInspections: AreaWithLastInspection[] = await Promise.all(areas.map(async (area) => {
-    const q = query(vistoriasCollection, where("areaId", "==", area.id), orderBy("date", "desc"), limit(1));
+    const q = query(dataCollection, where("areaId", "==", area.id), orderBy("date", "desc"), limit(1));
     const inspectionSnapshot = await getDocs(q);
     const lastInspection = inspectionSnapshot.empty ? null : inspectionSnapshot.docs[0].data() as Inspection;
     return { ...area, inspections: lastInspection ? [lastInspection] : [] };
@@ -118,7 +118,7 @@ export async function getAreas(): Promise<AreaWithLastInspection[]> {
 }
 
 export async function getAreaById(id: string): Promise<Area | undefined> {
-  const docRef = doc(db, 'vistorias', id);
+  const docRef = doc(db, 'cana_data', id);
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
@@ -137,15 +137,14 @@ export async function getAreaById(id: string): Promise<Area | undefined> {
 export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status'>): Promise<Area> {
   const nextInspectionDate = format(add(new Date(data.plantingDate), { days: 90 }), 'yyyy-MM-dd');
 
-  // Create a new document reference with a unique ID
-  const newDocRef = doc(vistoriasCollection);
+  const newDocRef = doc(dataCollection);
 
   const newAreaData = {
     ...data,
-    id: newDocRef.id, // we add the id to the document itself
+    id: newDocRef.id,
     nextInspectionDate,
     status: 'Agendada' as const,
-    areaId: null, // Mark this document as an area
+    areaId: null,
   };
 
   await setDoc(newDocRef, newAreaData);
@@ -154,7 +153,7 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
 }
 
 export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<Area | null> {
-  const docRef = doc(db, 'vistorias', id);
+  const docRef = doc(db, 'cana_data', id);
   await updateDoc(docRef, data);
   const updatedDoc = await getDoc(docRef);
   return updatedDoc.exists() ? ({ id: updatedDoc.id, ...updatedDoc.data() } as Area) : null;
@@ -163,11 +162,10 @@ export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): P
 export async function deleteArea(id: string): Promise<boolean> {
    const batch = writeBatch(db);
    
-   const areaRef = doc(db, 'vistorias', id);
+   const areaRef = doc(db, 'cana_data', id);
    batch.delete(areaRef);
 
-   // Também deleta as vistorias associadas (documentos que têm areaId igual ao id da área)
-   const q = query(vistoriasCollection, where("areaId", "==", id));
+   const q = query(dataCollection, where("areaId", "==", id));
    const inspectionsSnapshot = await getDocs(q);
    inspectionsSnapshot.forEach((doc) => {
        batch.delete(doc.ref);
@@ -181,15 +179,14 @@ export async function deleteArea(id: string): Promise<boolean> {
 export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<void> {
     
     try {
-        const areaRef = doc(db, "vistorias", areaId);
+        const areaRef = doc(db, "cana_data", areaId);
 
         const newInspection: Omit<Inspection, 'id'> = {
             ...inspectionData,
             areaId: areaId,
         };
 
-        // Adiciona a vistoria na mesma coleção
-        const inspectionRef = await addDoc(vistoriasCollection, newInspection);
+        const inspectionRef = await addDoc(dataCollection, newInspection);
         
         let newStatus: Area['status'] = 'Pendente';
         let newNextInspectionDate = format(add(new Date(inspectionData.date), { days: 20 }), 'yyyy-MM-dd');

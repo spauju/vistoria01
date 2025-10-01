@@ -1,16 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regra para a coleção que armazena tanto as áreas quanto as vistorias
-    match /vistorias/{document=**} {
+    match /cana_data/{document=**} {
       allow read;
-      allow write: if request.auth.uid != null;
+      allow write: if request.auth != null;
     }
-
-    // Regra para a coleção de usuários
-    match /users/{userId} {
+     match /users/{document=**} {
       allow read;
-      allow write: if request.auth.uid != null;
     }
   }
 }
