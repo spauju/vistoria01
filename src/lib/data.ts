@@ -15,36 +15,50 @@ import {
   limit,
   orderBy,
   addDoc,
-  getFirestore,
 } from 'firebase/firestore';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { adminApp, adminDb } from './firebase-admin';
-import { app } from '@/lib/firebase';
 import type { Area, Inspection, User, AreaWithLastInspection } from '@/lib/types';
 import { add, format } from 'date-fns';
 
-// Helper to get Firestore instance, ensuring it runs on the client.
-const getDb = () => getFirestore(app);
+// NOTE: All server-side data access now uses the adminDb to bypass client-side security rules,
+// as Server Actions run with admin privileges. The security is enforced by checking user roles
+// within the Server Actions themselves.
 
 export async function getUserById(uid: string): Promise<User | undefined> {
-  if (!uid) {
+  if (!uid || !adminDb) {
     return undefined;
   }
-  const db = getDb();
-  const userDocRef = doc(db, 'users', uid);
+  const userDocRef = doc(adminDb, 'users', uid);
   const userDocSnap = await getDoc(userDocRef);
 
   if (userDocSnap.exists()) {
     return { id: userDocSnap.id, ...userDocSnap.data() } as User;
   }
   
+  // If user exists in Auth but not in Firestore, create it.
+  if (adminApp) {
+      try {
+        const authUser = await getAdminAuth(adminApp).getUser(uid);
+        if (authUser.email) {
+            console.log(`Creating missing user document for ${uid}`);
+            const role = authUser.email === 'admin@canacontrol.com' ? 'admin' : 'technician';
+            const name = authUser.displayName || authUser.email.split('@')[0] || 'Usuário';
+            return await dbCreateUser(uid, authUser.email, name, role);
+        }
+      } catch (error) {
+        console.error("Error fetching user from Auth to create in DB:", error);
+      }
+  }
+
   return undefined;
 }
 
+
 export async function getAreas(): Promise<AreaWithLastInspection[]> {
-  const db = getDb();
-  const dataCollection = collection(db, 'cana_data');
-  const snapshot = await getDocs(query(dataCollection, where('areaId', '==', null)));
+  if (!adminDb) throw new Error('Admin DB not initialized');
+  const areasCollection = collection(adminDb, 'areas');
+  const snapshot = await getDocs(areasCollection);
   const areas: Area[] = [];
   snapshot.forEach(doc => {
     const data = doc.data();
@@ -57,7 +71,8 @@ export async function getAreas(): Promise<AreaWithLastInspection[]> {
   });
   
   const areasWithInspections: AreaWithLastInspection[] = await Promise.all(areas.map(async (area) => {
-    const q = query(collection(db, 'cana_data'), where("areaId", "==", area.id), orderBy("date", "desc"), limit(1));
+    const inspectionsCollection = collection(adminDb, `areas/${area.id}/inspections`);
+    const q = query(inspectionsCollection, orderBy("date", "desc"), limit(1));
     const inspectionSnapshot = await getDocs(q);
     const lastInspection = inspectionSnapshot.empty ? null : inspectionSnapshot.docs[0].data() as Inspection;
     return { ...area, inspections: lastInspection ? [lastInspection] : [] };
@@ -69,7 +84,7 @@ export async function getAreas(): Promise<AreaWithLastInspection[]> {
 
 export async function getAreaById(id: string): Promise<Area | undefined> {
   if (!adminDb) return undefined;
-  const docRef = doc(adminDb, 'cana_data', id);
+  const docRef = doc(adminDb, 'areas', id);
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
@@ -89,24 +104,24 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
   if (!adminDb) throw new Error('Admin DB not initialized');
   const nextInspectionDate = format(add(new Date(data.plantingDate), { days: 90 }), 'yyyy-MM-dd');
 
-  const newDocRef = await addDoc(collection(adminDb, 'cana_data'), {
+  const newDocRef = await addDoc(collection(adminDb, 'areas'), {
     ...data,
     nextInspectionDate,
     status: 'Agendada' as const,
-    areaId: null, 
   });
   
+  const createdDoc = await getDoc(newDocRef);
+  const createdData = createdDoc.data();
+
   return {
-    ...data,
-    id: newDocRef.id,
-    nextInspectionDate,
-    status: 'Agendada' as const,
+    ...createdData,
+    id: createdDoc.id,
   } as Area;
 }
 
 export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<Area | null> {
   if (!adminDb) throw new Error('Admin DB not initialized');
-  const docRef = doc(adminDb, 'cana_data', id);
+  const docRef = doc(adminDb, 'areas', id);
   await updateDoc(docRef, data);
   const updatedDoc = await getDoc(docRef);
   return updatedDoc.exists() ? ({ id: updatedDoc.id, ...updatedDoc.data() } as Area) : null;
@@ -116,14 +131,17 @@ export async function deleteArea(id: string): Promise<boolean> {
    if (!adminDb) throw new Error('Admin DB not initialized');
    const batch = writeBatch(adminDb);
    
-   const areaRef = doc(adminDb, 'cana_data', id);
-   batch.delete(areaRef);
-
-   const q = query(collection(adminDb, 'cana_data'), where("areaId", "==", id));
-   const inspectionsSnapshot = await getDocs(q);
+   const areaRef = doc(adminDb, 'areas', id);
+   
+   // Delete all inspections in the subcollection
+   const inspectionsCollection = collection(adminDb, `areas/${id}/inspections`);
+   const inspectionsSnapshot = await getDocs(inspectionsCollection);
    inspectionsSnapshot.forEach((doc) => {
        batch.delete(doc.ref);
    });
+
+   // Delete the area document itself
+   batch.delete(areaRef);
 
    await batch.commit();
 
@@ -133,14 +151,11 @@ export async function deleteArea(id: string): Promise<boolean> {
 export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<void> {
     if (!adminDb) throw new Error('Admin DB not initialized');
     try {
-        const areaRef = doc(adminDb, "cana_data", areaId);
+        const areaRef = doc(adminDb, "areas", areaId);
+        const inspectionsCollection = collection(areaRef, "inspections");
 
-        const newInspection: Omit<Inspection, 'id'> = {
-            ...inspectionData,
-            areaId: areaId,
-        };
-
-        await addDoc(collection(adminDb, 'cana_data'), newInspection);
+        // Add the new inspection to the subcollection
+        await addDoc(inspectionsCollection, inspectionData);
         
         let newStatus: Area['status'] = 'Pendente';
         let newNextInspectionDate = format(add(new Date(inspectionData.date), { days: 20 }), 'yyyy-MM-dd');
@@ -149,6 +164,7 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
             newStatus = 'Concluída';
         }
 
+        // Update the parent area document
         await updateDoc(areaRef, { 
             status: newStatus,
             nextInspectionDate: newNextInspectionDate,
@@ -165,12 +181,15 @@ export async function dbCreateUser(uid: string, email: string, name: string, rol
   if (!adminDb) throw new Error('Admin DB not initialized');
   const userDocRef = doc(adminDb, 'users', uid);
 
+  // Set custom claims for role-based access in Firestore rules
   if (adminApp) {
     try {
       const auth = getAdminAuth(adminApp);
       await auth.setCustomUserClaims(uid, { admin: role === 'admin' });
+      console.log(`Custom claim set for ${uid}: { admin: ${role === 'admin'} }`);
     } catch (error) {
        console.error("Failed to set custom claims:", error);
+       // Even if claims fail, we can still create the user doc
     }
   } else {
     console.warn('Firebase Admin SDK not initialized. Cannot set custom claims. Admin role will not work.');

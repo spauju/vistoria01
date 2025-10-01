@@ -1,9 +1,9 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth';
 import { app } from '@/lib/firebase';
-import { getUserById, dbCreateUser } from '@/lib/data';
+import { getUserById } from '@/lib/data';
 import type { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
@@ -24,41 +24,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = getAuth(app);
   const router = useRouter();
 
+  const handleUserAuth = useCallback(async (fbUser: FirebaseUser | null) => {
+    setFirebaseUser(fbUser);
+    if (fbUser) {
+      // Force refresh the token to get custom claims set by the server.
+      // This is crucial for the security rules to work correctly.
+      const token = await fbUser.getIdToken(true);
+      Cookies.set('idToken', token);
+
+      // The getUserById function (which runs on the server)
+      // can now create the user document if it's missing.
+      const appUser = await getUserById(fbUser.uid);
+      setUser(appUser || null);
+
+    } else {
+      // Clear user data and token on sign out
+      Cookies.remove('idToken');
+      setUser(null);
+    }
+    setLoading(false);
+  }, []);
+
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setFirebaseUser(fbUser);
-      if (fbUser) {
-        // Force refresh the token to get custom claims.
-        const token = await fbUser.getIdToken(true);
-        Cookies.set('idToken', token);
-
-        let appUser = await getUserById(fbUser.uid);
-        if (!appUser) {
-            console.log(`Creating user document for ${fbUser.uid}`);
-            const role = fbUser.email === 'admin@canacontrol.com' ? 'admin' : 'technician';
-            const name = fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário';
-            if (fbUser.email) {
-              appUser = await dbCreateUser(fbUser.uid, fbUser.email, name, role);
-            }
-        }
-        setUser(appUser || null);
-
-      } else {
-        Cookies.remove('idToken');
-        setUser(null);
-      }
-      setLoading(false);
-    });
-
+    const unsubscribe = onAuthStateChanged(auth, handleUserAuth);
     return () => unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth]);
+  }, [auth, handleUserAuth]);
 
   const signOut = async () => {
     await firebaseSignOut(auth);
-    Cookies.remove('idToken');
-    setUser(null);
-    setFirebaseUser(null);
+    // State will be cleared by the onAuthStateChanged listener
     router.push('/login');
   };
 

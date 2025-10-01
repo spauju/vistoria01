@@ -2,40 +2,57 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- FUNÇÕES GLOBAIS ---
-    
-    // Função que verifica se o usuário está logado.
+    // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
     
-    // Função que verifica se o usuário é um administrador usando Custom Claims.
     function isAdmin() {
+      // This is the most reliable way. It checks for a custom claim on the user's auth token.
+      // This claim must be set via the Admin SDK on the server.
       return isSignedIn() && request.auth.token.admin == true;
     }
     
-    // Função para verificar se o ID do usuário da requisição corresponde ao ID do documento.
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return request.auth.uid == userId;
     }
 
-    // --- REGRAS PARA A COLEÇÃO 'users' ---
+    // --- Rules for 'users' collection ---
     match /users/{userId} {
-      // LEITURA: Qualquer usuário autenticado pode ler os perfis (para listar técnicos, etc.).
+      // Admins can read/write any user document.
+      // Users can read their own document.
+      allow read: if isAdmin() || isOwner(userId);
+      
+      // Users can only update their own document.
+      // Admins can update any user document.
+      allow update: if isAdmin() || isOwner(userId);
+
+      // Only admins can create or delete users.
+      allow create, delete: if isAdmin();
+    }
+
+    // --- Rules for 'areas' collection and 'inspections' subcollection ---
+    match /areas/{areaId} {
+      // Any signed-in user (admin or technician) can read area data.
       allow read: if isSignedIn();
       
-      // ESCRITA (CRIAR, ATUALIZAR, APAGAR): Apenas administradores podem gerenciar usuários.
-      // Usuários individuais não podem se editar diretamente aqui, a lógica de "mudar senha" é feita pela Autenticação do Firebase, não pelo Firestore.
-      allow write: if isAdmin();
-    }
-    
-    // --- REGRAS PARA A COLEÇÃO 'cana_data' ---
-    match /cana_data/{document=**} {
-      // LEITURA E ATUALIZAÇÃO: Qualquer usuário logado (técnicos e admins) pode ler e atualizar.
-      allow read, update: if isSignedIn();
-      
-      // CRIAÇÃO E EXCLUSÃO: Apenas administradores podem criar ou apagar áreas e vistorias.
+      // Admins can create, update, and delete areas.
       allow create, delete: if isAdmin();
+
+      // Technicians and Admins can update areas (e.g., to change status).
+      allow update: if isSignedIn();
+
+      // --- Rules for 'inspections' subcollection ---
+      match /inspections/{inspectionId} {
+        // Any signed-in user can read inspections.
+        allow read: if isSignedIn();
+
+        // Any signed-in user can create an inspection.
+        allow create: if isSignedIn();
+        
+        // Only admins should be able to update/delete historical inspections.
+        allow update, delete: if isAdmin();
+      }
     }
   }
 }

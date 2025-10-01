@@ -19,8 +19,13 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 
 let analytics;
+// Ensure analytics is only initialized on the client side
 if (typeof window !== 'undefined') {
-  analytics = getAnalytics(app);
+  try {
+    analytics = getAnalytics(app);
+  } catch (error) {
+    console.error("Failed to initialize Analytics", error);
+  }
 }
 
 export { app, analytics };
