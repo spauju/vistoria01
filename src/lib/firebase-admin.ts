@@ -10,19 +10,11 @@ if (!admin.apps.length) {
       credential: admin.credential.cert(serviceAccount),
     });
   } else {
-    // Fallback for local/dev where service account isn't set.
-    // Check if we are using the emulator.
-    if (process.env.FIRESTORE_EMULATOR_HOST) {
-      admin.initializeApp({
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-        credential: admin.credential.applicationDefault(), // Use emulator credentials
-      });
-    } else {
-      // Use Application Default Credentials for deployed environments.
-       admin.initializeApp({
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      });
-    }
+    // This fallback is for environments where the service account is not set.
+    // It's useful for local development if you've logged in with `gcloud auth application-default login`.
+    // However, it can cause issues in some environments if not configured correctly.
+    // A service account is the most reliable method.
+    admin.initializeApp();
   }
 }
 
