@@ -5,8 +5,7 @@ import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, type User as F
 import { app } from '@/lib/firebase';
 import type { User } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
-import { ensureUserExists, getUserById } from '@/lib/data';
+import { getUserById, ensureUserExists } from '@/lib/data';
 
 
 interface AuthContextType {
@@ -31,12 +30,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (fbUser) {
         setFirebaseUser(fbUser);
         
-        // Fetch user profile from Firestore using UID to get the role
+        // Fetch user profile from Firestore using UID to get the role.
+        // The source of truth for the user's role is the Firestore document.
         let appUser = await getUserById(fbUser.uid);
 
-        // If user doesn't exist in Firestore, create them with default role
+        // If user doesn't exist in Firestore, they can log in, but they won't have any roles.
+        // The admin must create the user document in the database via the app's UI.
+        // We can create a temporary user object so the app doesn't crash.
         if (!appUser) {
-            appUser = await ensureUserExists(fbUser.uid, fbUser.email, fbUser.displayName);
+          // ensureUserExists will create the user if they don't exist, with a default role.
+          // This is useful for the first user (admin) to be able to log in and create others.
+           appUser = await ensureUserExists(fbUser.uid, fbUser.email, fbUser.displayName);
         }
 
         setUser(appUser);

@@ -48,10 +48,14 @@ export async function ensureUserExists(uid: string, email: string | null, name: 
         }
         return existingUser;
     }
-    // If user doesn't exist, create them
+    // If user doesn't exist, create them. This is important for the very first user (the admin).
     const userEmail = email || 'no-email@example.com';
     const userName = name || userEmail.split('@')[0];
-    return await dbCreateUser(uid, userEmail, userName, role);
+    // The first user created will be an admin. Subsequent users are created as technicians via the UI.
+    const allUsers = await getDocs(query(collection(db, USERS_COLLECTION)));
+    const finalRole = allUsers.empty ? 'admin' : role;
+
+    return await dbCreateUser(uid, userEmail, userName, finalRole);
 }
 
 // --- Area and Inspection Functions ---
