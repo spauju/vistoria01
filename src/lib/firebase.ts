@@ -1,17 +1,16 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDyRmnco3OXCJhz7oqsyDVvtS9c3eYKWK4",
+  authDomain: "vistoria-de-cana.firebaseapp.com",
+  projectId: "vistoria-de-cana",
+  storageBucket: "vistoria-de-cana.appspot.com",
+  messagingSenderId: "749613907959",
+  appId: "1:749613907959:web:7ba40acb787fbd9096f8f2",
+  measurementId: "G-9K1RH3326B"
 };
 
 // Initialize Firebase
