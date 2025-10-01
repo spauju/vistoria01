@@ -131,7 +131,7 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
             areaId: areaId,
         };
 
-        const inspectionRef = await addDoc(dataCollection, newInspection);
+        await addDoc(dataCollection, newInspection);
         
         let newStatus: Area['status'] = 'Pendente';
         let newNextInspectionDate = format(add(new Date(inspectionData.date), { days: 20 }), 'yyyy-MM-dd');

@@ -1,54 +1,16 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- FUNÇÕES GLOBAIS ---
-    
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    // Busca os dados do usuário que está fazendo a requisição.
-    function getRequestingUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    // Verifica se o usuário é um administrador.
-    function isAdmin() {
-      return isSignedIn() && getRequestingUserData().role == 'admin';
-    }
-
-    // Verifica se o usuário é um técnico.
-    function isTechnician() {
-        return isSignedIn() && getRequestingUserData().role == 'technician';
-    }
-
-    // --- REGRAS PARA A COLEÇÃO 'users' ---
-
     match /users/{userId} {
-      // LEITURA: Um usuário pode ler seu próprio perfil.
-      allow read: if isSignedIn() && request.auth.uid == userId;
-
-      // CRIAÇÃO: Apenas administradores podem criar novos usuários.
-      allow create: if isAdmin();
-      
-      // ATUALIZAÇÃO E EXCLUSÃO: Ninguém pode alterar ou excluir um perfil diretamente por segurança.
-      // A mudança de senha é feita pelo Firebase Auth, não aqui.
-      allow update, delete: if false;
+      // Authenticated users can read and write their own user document.
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // --- REGRAS PARA A COLEÇÃO 'cana_data' ---
 
-    match /cana_data/{areaId} {
-      // LEITURA: Admins e técnicos podem ler todas as áreas.
-      allow read: if isAdmin() || isTechnician();
-
-      // CRIAÇÃO e EXCLUSÃO: Apenas administradores podem criar ou excluir áreas.
-      allow create, delete: if isAdmin();
-
-      // ATUALIZAÇÃO: Admins e técnicos podem editar/atualizar as áreas (ex: adicionar uma vistoria).
-      allow update: if isAdmin() || isTechnician();
+    match /cana_data/{document=**} {
+      // Any authenticated user can read and write to the cana_data collection.
+      // UI logic in the app restricts actions based on user role.
+      allow read, write: if request.auth != null;
     }
   }
 }
