@@ -7,6 +7,9 @@ import { add, format } from 'date-fns';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { app } from '@/lib/firebase';
+import { cookies } from 'next/headers';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
+import { adminApp } from '@/lib/firebase-admin';
 
 const areaSchema = z.object({
   sectorLote: z.string().min(1, 'Setor/Lote é obrigatório.'),
@@ -65,14 +68,28 @@ export async function updateAreaAction(areaId: string, prevState: any, formData:
 }
 
 export async function deleteAreaAction(areaId: string) {
+  const idToken = cookies().get('idToken')?.value;
+  if (!idToken) {
+    return { message: 'Ação não autorizada. Faça login novamente.' };
+  }
+
   try {
+    const decodedToken = await getAdminAuth(adminApp).verifyIdToken(idToken);
+    const user = await getUserById(decodedToken.uid);
+
+    if (user?.role !== 'admin') {
+      return { message: 'Apenas administradores podem excluir áreas.' };
+    }
+
     await dbDeleteArea(areaId);
     revalidatePath('/');
     return { message: 'Área excluída com sucesso.' };
   } catch (e) {
-    return { message: 'Falha ao excluir área.' };
+    console.error('Falha ao excluir área:', e);
+    return { message: 'Falha ao excluir área. Verifique suas permissões.' };
   }
 }
+
 
 const inspectionSchema = z.object({
     heightCm: z.coerce.number().min(1, "Altura é obrigatória."),

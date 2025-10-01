@@ -6,6 +6,7 @@ import { app } from '@/lib/firebase';
 import { getUserById, dbCreateUser } from '@/lib/data';
 import type { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
 
 interface AuthContextType {
   user: User | null;
@@ -27,6 +28,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
+        // Store id token in cookie for server actions
+        const token = await fbUser.getIdToken();
+        Cookies.set('idToken', token);
+
         let appUser = await getUserById(fbUser.uid);
         if (!appUser) {
             const role = fbUser.email === 'admin@canacontrol.com' ? 'admin' : 'technician';
@@ -38,16 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(appUser || null);
 
       } else {
+        Cookies.remove('idToken');
         setUser(null);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth]);
 
   const signOut = async () => {
     await firebaseSignOut(auth);
+    Cookies.remove('idToken');
     setUser(null);
     setFirebaseUser(null);
     router.push('/login');
