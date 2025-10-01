@@ -6,16 +6,14 @@ import {
   getDoc,
   getDocs,
   setDoc,
-  addDoc,
   updateDoc,
   deleteDoc,
   query,
   where,
   Timestamp,
-  runTransaction,
-  orderBy,
-  limit,
   writeBatch,
+  limit,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Area, Inspection, User, AreaWithLastInspection } from '@/lib/types';
@@ -25,71 +23,62 @@ const usersCollection = collection(db, 'users');
 const dataCollection = collection(db, 'cana_data');
 
 async function seedInitialUsers() {
-    const adminUserRef = doc(usersCollection, 'admin@canacontrol.com');
-    const adminDoc = await getDoc(adminUserRef);
-    if (!adminDoc.exists()) {
-        await setDoc(adminUserRef, {
-            email: 'admin@canacontrol.com',
-            role: 'admin',
-            name: 'Admin'
-        });
-    }
-
-    const techUserRef = doc(usersCollection, 'tech@canacontrol.com');
-    const techDoc = await getDoc(techUserRef);
-    if (!techDoc.exists()) {
-        await setDoc(techUserRef, {
-            email: 'tech@canacontrol.com',
-            role: 'technician',
-            name: 'Técnico'
-        });
-    }
+    // This seeding logic might need adjustment if UIDs are not predictable.
+    // For now, we rely on the app to create/find users correctly.
 }
 seedInitialUsers();
 
-export async function getUserByEmail(email: string): Promise<User | undefined> {
-  if (!email) {
+// IMPORTANT: This function now requires the user's UID from Firebase Auth.
+export async function getUserById(uid: string): Promise<User | undefined> {
+  if (!uid) {
     return undefined;
   }
-  if (email === 'admin@canacontrol.com') {
-    return {
-        id: email,
-        email: email,
-        name: 'Admin',
-        role: 'admin'
-    };
-  }
-
-  const userDocRef = doc(db, 'users', email);
+  
+  const userDocRef = doc(db, 'users', uid);
   const userDoc = await getDoc(userDocRef);
 
   if (userDoc.exists()) {
     return { id: userDoc.id, ...userDoc.data() } as User;
   } else {
-     return {
-        id: email,
-        email: email.split('@')[0],
-        name: email.split('@')[0],
-        role: 'technician'
+    // Fallback for users that might not have a doc yet, though this should be handled on signup.
+    // The role is the most critical part. Let's provide a default.
+    return {
+        id: uid,
+        email: 'Usuário não encontrado',
+        name: 'Usuário',
+        role: 'technician' // Default to the more restrictive role.
     };
   }
 }
 
-export async function createUser(email: string, password?: string): Promise<User> {
-  const existingUserDoc = await getDoc(doc(usersCollection, email));
+export async function createUser(uid: string, email: string, name: string, role: 'admin' | 'technician'): Promise<User> {
+  const existingUserDoc = await getDoc(doc(usersCollection, uid));
   if (existingUserDoc.exists()) {
-    throw new Error('User already exists');
+    // Optionally update user info here if it can change
+    const user = existingUserDoc.data() as User;
+    return user;
   }
 
   const newUser: Omit<User, 'id'> = {
     email,
-    name: email.split('@')[0],
-    role: 'technician',
+    name,
+    role,
   };
 
-  await setDoc(doc(usersCollection, email), newUser);
+  await setDoc(doc(usersCollection, uid), newUser);
 
-  return { ...newUser, id: email };
+  // Seed initial users if they match
+  if(email === "admin@canacontrol.com" && !existingUserDoc.exists()){
+     await setDoc(doc(usersCollection, uid), {email, name: "Admin", role: "admin"});
+     return {id: uid, email, name: "Admin", role: "admin"};
+  }
+  if(email === "tech@canacontrol.com" && !existingUserDoc.exists()){
+     await setDoc(doc(usersCollection, uid), {email, name: "Técnico", role: "technician"});
+     return {id: uid, email, name: "Técnico", role: "technician"};
+  }
+
+
+  return { ...newUser, id: uid };
 }
 
 
@@ -141,7 +130,7 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
     ...data,
     nextInspectionDate,
     status: 'Agendada' as const,
-    areaId: null, // This is crucial for the where('areaId', '==', null) query to work
+    areaId: null, 
   });
   
   return {
@@ -204,4 +193,25 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         console.error("Transaction failed: ", e);
         throw e;
     }
+}
+
+
+export async function getUserByEmail(email: string): Promise<User | undefined> {
+  if (!email) {
+    return undefined;
+  }
+  const q = query(usersCollection, where("email", "==", email), limit(1));
+  const querySnapshot = await getDocs(q);
+  if (querySnapshot.empty) {
+    return undefined;
+  }
+  const userDoc = querySnapshot.docs[0];
+  return { id: userDoc.id, ...userDoc.data() } as User;
+}
+
+export async function createUserAction(prevState: any, formData: FormData) {
+  // This function is in actions.ts, but let's assume it should be here.
+  // It should call the createUser function above.
+  // For now, I will leave the existing logic in actions.ts and just correct the user lookup.
+  return { message: "Função não implementada aqui.", errors: {}};
 }

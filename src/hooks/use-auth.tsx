@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth';
 import { app } from '@/lib/firebase';
-import { getUserByEmail } from '@/lib/data';
+import { getUserById, createUser } from '@/lib/data';
 import type { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
@@ -27,9 +27,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
-        // In a real app, you might fetch user role from Firestore/DB
-        const appUser = await getUserByEmail(fbUser.email || '');
+        let appUser = await getUserById(fbUser.uid);
+        if (!appUser) {
+            // If user exists in Auth but not in DB, create them.
+            const role = fbUser.email === 'admin@canacontrol.com' ? 'admin' : 'technician';
+            const name = fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário';
+            appUser = await createUser(fbUser.uid, fbUser.email!, name, role);
+        }
         setUser(appUser || null);
+
       } else {
         setUser(null);
       }

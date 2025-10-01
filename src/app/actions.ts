@@ -162,13 +162,16 @@ export async function createUserAction(prevState: any, formData: FormData) {
 
   try {
     const existingUser = await getUserByEmail(email);
-    if (existingUser && existingUser.id !== email) { // Check if user exists in mock DB but wasn't a placeholder
+    if (existingUser) {
          return { message: 'Este email já está em uso.', errors: { email: ['Este email já está em uso.'] } };
     }
     
-    await createUserWithEmailAndPassword(auth, email, password);
-    // Also add to our mock DB
-    await dbCreateUser(email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const { uid } = userCredential.user;
+    const name = email.split('@')[0];
+    const role = email === 'admin@canacontrol.com' ? 'admin' : 'technician';
+    
+    await dbCreateUser(uid, email, name, role);
 
     revalidatePath('/');
     return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
