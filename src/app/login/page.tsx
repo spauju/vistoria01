@@ -26,7 +26,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push('/');
+      // O redirecionamento agora é tratado pelo AuthProvider
+      // router.push('/');
     } catch (error: any) {
       toast({
         title: 'Erro de Login',

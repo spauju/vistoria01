@@ -5,7 +5,7 @@ import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, type User as F
 import { app } from '@/lib/firebase';
 import { getUserById } from '@/lib/data';
 import type { User } from '@/lib/types';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 
 interface AuthContextType {
@@ -23,38 +23,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const auth = getAuth(app);
   const router = useRouter();
-
-  const handleUserAuth = useCallback(async (fbUser: FirebaseUser | null) => {
-    setFirebaseUser(fbUser);
-    if (fbUser) {
-      // Force refresh the token to get custom claims set by the server.
-      // This is crucial for the security rules to work correctly.
-      const token = await fbUser.getIdToken(true);
-      Cookies.set('idToken', token);
-
-      // The getUserById function (which runs on the server)
-      // can now create the user document if it's missing.
-      const appUser = await getUserById(fbUser.uid);
-      setUser(appUser || null);
-
-    } else {
-      // Clear user data and token on sign out
-      Cookies.remove('idToken');
-      setUser(null);
-    }
-    setLoading(false);
-  }, []);
-
+  const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, handleUserAuth);
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setLoading(true);
+      if (fbUser) {
+        setFirebaseUser(fbUser);
+        const token = await fbUser.getIdToken(true);
+        Cookies.set('idToken', token);
+        
+        const appUser = await getUserById(fbUser.uid);
+        setUser(appUser || null);
+
+        if (pathname === '/login') {
+            router.push('/');
+        }
+      } else {
+        setFirebaseUser(null);
+        setUser(null);
+        Cookies.remove('idToken');
+        if (pathname !== '/login' && pathname !== '/rules') {
+            router.push('/login');
+        }
+      }
+      setLoading(false);
+    });
+
     return () => unsubscribe();
-  }, [auth, handleUserAuth]);
+  }, [auth, router, pathname]);
 
   const signOut = async () => {
     await firebaseSignOut(auth);
-    // State will be cleared by the onAuthStateChanged listener
-    router.push('/login');
+    // O onAuthStateChanged tratará do redirecionamento e da limpeza do estado.
   };
 
   return (
