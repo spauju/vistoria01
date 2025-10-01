@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useActionState, type ReactNode, useEffect, useTransition } from 'react';
+import { useState, useTransition, type ReactNode, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -68,30 +68,26 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
         },
   });
 
-  const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
-  const [state, formAction] = useActionState(action, { message: '', errors: {} });
-
-  useEffect(() => {
-    if (state.message && !isPending) {
-      toast({
-        title: area ? 'Atualização de Área' : 'Cadastro de Área',
-        description: state.message,
-        variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
-      });
-      if (!state.errors || Object.keys(state.errors).length === 0) {
-        setOpen(false);
-        form.reset();
-      }
-    }
-  }, [state, area, form, toast, isPending]);
-
   const onSubmit = (data: AreaFormValues) => {
     const formData = new FormData();
     formData.append('sectorLote', data.sectorLote);
     formData.append('plots', data.plots);
     formData.append('plantingDate', format(data.plantingDate, 'yyyy-MM-dd'));
-    startTransition(() => {
-      formAction(formData);
+
+    startTransition(async () => {
+      const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
+      const state = await action({ message: '', errors: {} }, formData);
+
+      toast({
+        title: area ? 'Atualização de Área' : 'Cadastro de Área',
+        description: state.message,
+        variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
+      });
+
+      if (!state.errors || Object.keys(state.errors).length === 0) {
+        setOpen(false);
+        form.reset();
+      }
     });
   };
 
