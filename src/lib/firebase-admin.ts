@@ -10,8 +10,11 @@ if (!admin.apps.length) {
       credential: admin.credential.cert(serviceAccount),
     });
   } else {
-    // Fallback for local development without service account
-    admin.initializeApp();
+    // Fallback for local/dev where service account isn't set
+    // It will use Application Default Credentials
+    admin.initializeApp({
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    });
   }
 }
 
