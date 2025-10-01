@@ -70,7 +70,6 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
   const [state, formAction, isPending] = useActionState(action, { message: '', errors: {} });
 
-  // This useEffect handles showing toasts and closing the dialog on success
   useEffect(() => {
     if (state.message && !isPending) {
       toast({
@@ -85,8 +84,6 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
     }
   }, [state, area, form, toast, isPending]);
 
-  // We pass the formAction to the form's action prop
-  // and use the handleSubmit to trigger it.
   const onSubmit = (data: AreaFormValues) => {
     const formData = new FormData();
     formData.append('sectorLote', data.sectorLote);
@@ -106,7 +103,7 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form action={formAction} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="sectorLote"
