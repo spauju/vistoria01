@@ -35,3 +35,4 @@ initializeAdmin();
 
 // Export the initialized instances, which might be undefined if initialization failed.
 export { adminApp, adminDb };
+

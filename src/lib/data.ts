@@ -1,3 +1,4 @@
+
 'use server';
 
 import {
@@ -24,6 +25,8 @@ import { add, format } from 'date-fns';
 async function getAdminDb() {
     const { adminDb } = await import('./firebase-admin');
     if (!adminDb) {
+        // This part should ideally not be reached if initialization is correct.
+        // It indicates a severe configuration problem.
         throw new Error('Admin DB not initialized or initialization failed.');
     }
     return adminDb;
