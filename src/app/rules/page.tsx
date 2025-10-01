@@ -15,9 +15,9 @@ service cloud.firestore {
     // Rule for the 'users' collection
     match /users/{userId} {
       // Admins can read and write any user document
-      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       // Authenticated users can read their own document
-      allow read: if request.auth.uid == userId;
+      allow read: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // Rule for the 'cana_data' collection
