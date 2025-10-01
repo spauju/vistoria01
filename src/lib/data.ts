@@ -23,12 +23,6 @@ import { add, format } from 'date-fns';
 const usersCollection = collection(db, 'users');
 const dataCollection = collection(db, 'cana_data');
 
-async function seedInitialUsers() {
-    // This seeding logic might need adjustment if UIDs are not predictable.
-    // For now, we rely on the app to create/find users correctly.
-}
-seedInitialUsers();
-
 // IMPORTANT: This function now requires the user's UID from Firebase Auth.
 export async function getUserById(uid: string): Promise<User | undefined> {
   if (!uid) {
@@ -44,17 +38,6 @@ export async function getUserById(uid: string): Promise<User | undefined> {
     return undefined;
   }
 }
-
-export async function createUser(uid: string, email: string, name: string, role: 'admin' | 'technician'): Promise<User> {
-  const newUser: Omit<User, 'id'> = {
-    email,
-    name,
-    role,
-  };
-  await setDoc(doc(usersCollection, uid), newUser);
-  return { ...newUser, id: uid };
-}
-
 
 export async function getAreas(): Promise<AreaWithLastInspection[]> {
   const snapshot = await getDocs(query(dataCollection, where('areaId', '==', null)));
@@ -187,7 +170,7 @@ export async function dbCreateUser(uid: string, email: string, name: string, rol
   const existingUserDoc = await getDoc(doc(usersCollection, uid));
   if (existingUserDoc.exists()) {
     // Optionally update user info here if it can change
-    const user = existingUserDoc.data() as User;
+    const user = { id: existingUserDoc.id, ...existingUserDoc.data() } as User;
     return user;
   }
 

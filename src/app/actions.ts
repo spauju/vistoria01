@@ -173,7 +173,7 @@ export async function createUserAction(prevState: any, formData: FormData) {
     
     await dbCreateUser(uid, email, name, role);
 
-    revalidatePath('/');
+    revalidatePath('/login');
     return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
   } catch (error: any) {
     let message = 'Falha ao criar usuário.';
