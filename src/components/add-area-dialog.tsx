@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useActionState, type ReactNode, useEffect } from 'react';
+import { useState, useActionState, type ReactNode, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -70,16 +70,9 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
   const [state, formAction, isPending] = useActionState(action, { message: '', errors: {} });
 
-  const onSubmit = (data: AreaFormValues) => {
-    const formData = new FormData();
-    formData.append('sectorLote', data.sectorLote);
-    formData.append('plots', data.plots);
-    formData.append('plantingDate', format(data.plantingDate, 'yyyy-MM-dd'));
-    formAction(formData);
-  };
-  
+  // This useEffect handles showing toasts and closing the dialog on success
   useEffect(() => {
-    if (state.message) {
+    if (state.message && !isPending) {
       toast({
         title: area ? 'Atualização de Área' : 'Cadastro de Área',
         description: state.message,
@@ -90,8 +83,17 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
         form.reset();
       }
     }
-  }, [state, area, form, toast]);
+  }, [state, area, form, toast, isPending]);
 
+  // We pass the formAction to the form's action prop
+  // and use the handleSubmit to trigger it.
+  const onSubmit = (data: AreaFormValues) => {
+    const formData = new FormData();
+    formData.append('sectorLote', data.sectorLote);
+    formData.append('plots', data.plots);
+    formData.append('plantingDate', format(data.plantingDate, 'yyyy-MM-dd'));
+    formAction(formData);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -104,7 +106,7 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form action={formAction} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="sectorLote"
