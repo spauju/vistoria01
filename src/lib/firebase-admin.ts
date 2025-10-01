@@ -10,11 +10,19 @@ if (!admin.apps.length) {
       credential: admin.credential.cert(serviceAccount),
     });
   } else {
-    // Fallback for local/dev where service account isn't set
-    // It will use Application Default Credentials
-    admin.initializeApp({
+    // Fallback for local/dev where service account isn't set.
+    // Check if we are using the emulator.
+    if (process.env.FIRESTORE_EMULATOR_HOST) {
+      admin.initializeApp({
         projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
+        credential: admin.credential.applicationDefault(), // Use emulator credentials
+      });
+    } else {
+      // Use Application Default Credentials for deployed environments.
+       admin.initializeApp({
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      });
+    }
   }
 }
 
