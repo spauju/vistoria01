@@ -12,19 +12,22 @@ export default function RulesPage() {
   const rules = `rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Rule for the 'users' collection
-    match /users/{userId} {
-      // Admins can write to any user document for management purposes.
-      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      // Authenticated users can read their own document.
-      allow read: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    function isUserAuthenticated() {
+      return request.auth != null;
     }
 
-    // Rule for the 'cana_data' collection
-    match /cana_data/{document=**} {
-      // Any authenticated user can read and write to the cana_data collection.
-      // UI logic in the app restricts actions based on user role.
-      allow read, write: if request.auth != null;
+    function isUserAdmin() {
+      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{userId} {
+      allow write: if isUserAdmin();
+      allow read: if request.auth.uid == userId || isUserAdmin();
+    }
+
+    match /cana_data/{areaId} {
+      allow read, update: if isUserAuthenticated();
+      allow create, delete: if isUserAdmin();
     }
   }
 }`;
