@@ -12,12 +12,19 @@ export default function RulesPage() {
   const rules = `rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /cana_data/{document=**} {
-      allow read;
-      allow write: if request.auth != null;
+    // Allow admins to read/write all user data
+    match /users/{userId} {
+      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-     match /users/{document=**} {
-      allow read;
+
+    // Allow authenticated users to read their own user data
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId;
+    }
+
+    // Allow authenticated users to read/write all cana_data
+    match /cana_data/{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }`;
@@ -54,7 +61,7 @@ service cloud.firestore {
           <Textarea
             readOnly
             value={rules}
-            className="h-48 resize-none font-mono"
+            className="h-64 resize-none font-mono"
           />
           <div className="flex justify-between items-center">
             <Button onClick={handleCopy}>

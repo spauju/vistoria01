@@ -144,7 +144,7 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
     id: newDocRef.id,
     nextInspectionDate,
     status: 'Agendada' as const,
-    areaId: null,
+    areaId: null, // This is crucial for the where('areaId', '==', null) query to work
   };
 
   await setDoc(newDocRef, newAreaData);
