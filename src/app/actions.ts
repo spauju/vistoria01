@@ -6,8 +6,7 @@ import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDelet
 import { add, format } from 'date-fns';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
 import { cookies } from 'next/headers';
-import { getAuth as getAdminAuth } from 'firebase-admin/auth';
-import { adminApp } from '@/lib/firebase-admin';
+
 
 const areaSchema = z.object({
   sectorLote: z.string().min(1, 'Setor/Lote é obrigatório.'),
@@ -69,14 +68,18 @@ export async function deleteAreaAction(areaId: string) {
   try {
     const idToken = cookies().get('idToken')?.value;
 
-    if (!adminApp) {
-       return { message: 'Ação não autorizada. O serviço de administração não está disponível.' };
-    }
     if (!idToken) {
        return { message: 'Ação não autorizada. Token de autenticação não encontrado.' };
     }
+    
+    const { adminApp } = await import('@/lib/firebase-admin');
+    const { getAuth } = await import('firebase-admin/auth');
 
-    const decodedToken = await getAdminAuth(adminApp).verifyIdToken(idToken);
+    if (!adminApp) {
+       return { message: 'Ação não autorizada. O serviço de administração não está disponível.' };
+    }
+
+    const decodedToken = await getAuth(adminApp).verifyIdToken(idToken);
 
     if (decodedToken.admin !== true) {
       return { message: 'Ação não autorizada. Apenas administradores podem excluir áreas.' };
@@ -177,12 +180,20 @@ export async function createUserAction(prevState: any, formData: FormData) {
 
   // First, verify if the user making the request is an admin
   const idToken = cookies().get('idToken')?.value;
-  if (!adminApp || !idToken) {
-    return { message: 'Ação não autorizada.', errors: {}};
+  
+  if (!idToken) {
+    return { message: 'Ação não autorizada. Token inválido.', errors: {}};
+  }
+  
+  const { adminApp } = await import('@/lib/firebase-admin');
+  const { getAuth } = await import('firebase-admin/auth');
+
+  if (!adminApp) {
+      return { message: 'Ação não autorizada.', errors: {}};
   }
   
   try {
-    const decodedToken = await getAdminAuth(adminApp).verifyIdToken(idToken);
+    const decodedToken = await getAuth(adminApp).verifyIdToken(idToken);
     if(decodedToken.admin !== true) {
         return { message: 'Ação não autorizada. Apenas administradores podem criar usuários.', errors: {}};
     }
@@ -194,7 +205,7 @@ export async function createUserAction(prevState: any, formData: FormData) {
   const { email } = validatedFields.data;
   
   try {
-    const auth = getAdminAuth(adminApp);
+    const auth = getAuth(adminApp);
     const userRecord = await auth.createUser({
         email: email,
         password: formData.get('password') as string,
