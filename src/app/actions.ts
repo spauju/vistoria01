@@ -161,29 +161,20 @@ export async function createUserAction(prevState: any, formData: FormData) {
   const auth = getAuth(app);
 
   try {
-    // We create the user in Firebase Auth first
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const { uid } = userCredential.user;
-
-    // Check if user already exists in Firestore DB (should not happen in a clean sign-up)
-    const existingUser = await getUserById(uid);
-    if (existingUser) {
-         return { message: 'Este usuário já existe no banco de dados.', errors: { email: ['Este usuário já existe no banco de dados.'] } };
-    }
     
     const name = email.split('@')[0];
-    // All new users created through this action are technicians
     const role = 'technician';
     
     await dbCreateUser(uid, email, name, role);
 
-    // Revalidate, but don't redirect here. The login page will handle redirection on auth state change.
     revalidatePath('/');
     return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
   } catch (error: any) {
     let message = 'Falha ao criar usuário.';
     if (error.code === 'auth/email-already-in-use') {
-       message = 'Este email já está em uso na autenticação do Firebase.';
+       message = 'Este email já está em uso.';
     }
     return { message, errors: { email: [message] } };
   }

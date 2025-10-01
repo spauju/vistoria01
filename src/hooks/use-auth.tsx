@@ -29,8 +29,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (fbUser) {
         let appUser = await getUserById(fbUser.uid);
         if (!appUser) {
-            // If user exists in Auth but not in DB, create them.
-            // This can happen if using a new auth provider or if DB was cleared.
             const role = fbUser.email === 'admin@canacontrol.com' ? 'admin' : 'technician';
             const name = fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário';
             if (fbUser.email) {
