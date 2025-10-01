@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { PT_Sans } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
@@ -11,11 +11,33 @@ const ptSans = PT_Sans({
   variable: '--font-sans',
 });
 
+const APP_NAME = "CanaControl";
+const APP_DEFAULT_TITLE = "CanaControl";
+const APP_TITLE_TEMPLATE = "%s - CanaControl";
+const APP_DESCRIPTION = "Aplicativo de vistoria de cana-de-açúcar";
+
 export const metadata: Metadata = {
-  title: 'CanaControl',
-  description: 'Aplicativo de vistoria de cana-de-açúcar',
-  manifest: '/manifest.webmanifest',
+  applicationName: APP_NAME,
+  title: {
+    default: APP_DEFAULT_TITLE,
+    template: APP_TITLE_TEMPLATE,
+  },
+  description: APP_DESCRIPTION,
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: APP_DEFAULT_TITLE,
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
+
+export const viewport: Viewport = {
+  themeColor: "#FFFFFF",
+};
+
 
 export default function RootLayout({
   children,
