@@ -1,27 +1,19 @@
-'use server';
-
+import { db } from './firebase';
+import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, setDoc, query, orderBy, arrayUnion } from 'firebase/firestore';
 import type { Area, Inspection, User, AreaWithLastInspection, UserRole } from '@/lib/types';
-import { add, toDate } from 'date-fns';
-import { adminDb } from './firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { add } from 'date-fns';
 
 const AREAS_COLLECTION = 'cana_data';
 const USERS_COLLECTION = 'users';
-
-// --- Helper Functions ---
-async function getAdminDb() {
-  // This dynamic import ensures admin SDK is only loaded on the server.
-  return adminDb;
-}
 
 // --- User Functions ---
 
 export async function getUserById(uid: string): Promise<User | null> {
     if (!uid) return null;
-    const db = await getAdminDb();
     try {
-        const userDoc = await db.collection(USERS_COLLECTION).doc(uid).get();
-        if (!userDoc.exists) {
+        const userDocRef = doc(db, USERS_COLLECTION, uid);
+        const userDoc = await getDoc(userDocRef);
+        if (!userDoc.exists()) {
             console.log(`User with uid ${uid} not found in Firestore.`);
             return null;
         }
@@ -32,43 +24,41 @@ export async function getUserById(uid: string): Promise<User | null> {
     }
 }
 
-
 export async function dbCreateUser(uid: string, email: string, name: string, role: UserRole): Promise<User> {
-    const db = await getAdminDb();
     const newUser: User = { id: uid, email, name, role };
-    await db.collection(USERS_COLLECTION).doc(uid).set(newUser);
+    const userDocRef = doc(db, USERS_COLLECTION, uid);
+    await setDoc(userDocRef, newUser);
     console.log("Created user in Firestore:", newUser);
     return newUser;
 }
 
-export async function ensureUserExists(uid: string, email: string | null, name: string | null): Promise<User> {
+export async function ensureUserExists(uid: string, email: string | null, name: string | null, role?: UserRole): Promise<User> {
     const existingUser = await getUserById(uid);
     if (existingUser) {
         return existingUser;
     }
-    // If user does not exist, create them as a technician by default.
     const userEmail = email || 'no-email@example.com';
     const userName = name || userEmail.split('@')[0];
-    return await dbCreateUser(uid, userEmail, userName, 'technician');
+    const userRole = role || 'technician';
+    return await dbCreateUser(uid, userEmail, userName, userRole);
 }
 
 // --- Area and Inspection Functions ---
 
 export async function getAreas(): Promise<AreaWithLastInspection[]> {
-    const db = await getAdminDb();
-    const snapshot = await db.collection(AREAS_COLLECTION).orderBy('nextInspectionDate', 'asc').get();
+    const q = query(collection(db, AREAS_COLlection), orderBy('nextInspectionDate', 'asc'));
+    const snapshot = await getDocs(q);
     
     const areas: AreaWithLastInspection[] = [];
     snapshot.forEach(doc => {
         const data = doc.data();
-        // Ensure inspections is an array and sort it descending by date
         const inspections = data.inspections && Array.isArray(data.inspections) ? data.inspections : [];
         inspections.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         areas.push({
             id: doc.id,
             ...data,
-            inspections: inspections.slice(0, 1) // Only return the last inspection
+            inspections: inspections.slice(0, 1)
         } as AreaWithLastInspection);
     });
     
@@ -76,24 +66,23 @@ export async function getAreas(): Promise<AreaWithLastInspection[]> {
 }
 
 export async function getAreaById(id: string): Promise<AreaWithLastInspection | null> {
-    const db = await getAdminDb();
-    const doc = await db.collection(AREAS_COLLECTION).doc(id).get();
-     if (!doc.exists) {
+    const docRef = doc(db, AREAS_COLLECTION, id);
+    const docSnap = await getDoc(docRef);
+     if (!docSnap.exists()) {
         return null;
     }
-    const data = doc.data()!;
+    const data = docSnap.data()!;
     const inspections = data.inspections && Array.isArray(data.inspections) ? data.inspections : [];
     inspections.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return {
-        id: doc.id,
+        id: docSnap.id,
         ...data,
         inspections: inspections
     } as AreaWithLastInspection;
 }
 
 export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status' | 'inspections'>): Promise<Area> {
-    const db = await getAdminDb();
     const nextInspectionDate = add(new Date(data.plantingDate), { days: 90 }).toISOString().split('T')[0];
 
     const newArea: Omit<Area, 'id'> = {
@@ -103,27 +92,21 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
         inspections: [],
     };
 
-    const docRef = await db.collection(AREAS_COLLECTION).add(newArea);
+    const docRef = await addDoc(collection(db, AREAS_COLLECTION), newArea);
     return { ...newArea, id: docRef.id };
 }
 
-export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<Area | null> {
-    const db = await getAdminDb();
-    const docRef = db.collection(AREAS_COLLECTION).doc(id);
-    await docRef.update(data);
-    const updatedDoc = await docRef.get();
-    return { id: updatedDoc.id, ...updatedDoc.data() } as Area;
+export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<void> {
+    const docRef = doc(db, AREAS_COLLECTION, id);
+    await updateDoc(docRef, data);
 }
 
-export async function deleteArea(id: string): Promise<boolean> {
-    const db = await getAdminDb();
-    await db.collection(AREAS_COLLECTION).doc(id).delete();
-    return true;
+export async function deleteArea(id: string): Promise<void> {
+    await deleteDoc(doc(db, AREAS_COLLECTION, id));
 }
 
 export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<void> {
-    const db = await getAdminDb();
-    const areaRef = db.collection(AREAS_COLLECTION).doc(areaId);
+    const areaRef = doc(db, AREAS_COLLECTION, areaId);
 
     const newInspection: Omit<Inspection, 'areaId'> = {
         ...inspectionData,
@@ -137,9 +120,9 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         newStatus = 'Concluída';
     }
     
-    await areaRef.update({
+    await updateDoc(areaRef, {
         status: newStatus,
         nextInspectionDate: newNextInspectionDate,
-        inspections: FieldValue.arrayUnion(newInspection)
+        inspections: arrayUnion(newInspection)
     });
 }

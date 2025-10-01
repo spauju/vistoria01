@@ -6,7 +6,7 @@ import { app } from '@/lib/firebase';
 import type { User } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { fetchUserAction } from '@/app/actions';
+import { ensureUserExists } from '@/lib/data';
 
 
 interface AuthContextType {
@@ -29,28 +29,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleAuthStateChange = useCallback(async (fbUser: FirebaseUser | null) => {
     setLoading(true);
     if (fbUser) {
-        // Always set firebaseUser and cookie first
+        const token = await fbUser.getIdToken(true); // Force refresh to get custom claims
+        const idTokenResult = await fbUser.getIdTokenResult();
+        const userRole = (idTokenResult.claims.role || 'technician') as User['role'];
+        
         setFirebaseUser(fbUser);
-        const token = await fbUser.getIdToken();
         Cookies.set('token', token, { secure: true, sameSite: 'strict' });
         Cookies.set('uid', fbUser.uid, { secure: true, sameSite: 'strict' });
 
-        // Then, fetch the app user profile from our backend
-        const appUser = await fetchUserAction(fbUser.uid, fbUser.email, fbUser.displayName);
+        // Ensure user document exists in Firestore, now using client SDK
+        const appUser = await ensureUserExists(fbUser.uid, fbUser.email, fbUser.displayName, userRole);
         setUser(appUser);
         
-        // Redirect if on a public page
         if (pathname === '/login' || pathname === '/rules') {
             router.push('/');
         }
     } else {
-        // Clear all user state and cookies
         setFirebaseUser(null);
         setUser(null);
         Cookies.remove('token');
         Cookies.remove('uid');
         
-        // Redirect to login if not on a public page
         if (pathname !== '/login' && pathname !== '/rules') {
             router.push('/login');
         }
@@ -66,7 +65,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await firebaseSignOut(auth);
-    // onAuthStateChanged will handle the redirect and state cleanup
   };
 
   return (

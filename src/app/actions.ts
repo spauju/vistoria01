@@ -5,25 +5,7 @@ import { z } from 'zod';
 import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById, dbCreateUser, getUserById, ensureUserExists } from '@/lib/data';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
 import { cookies } from 'next/headers';
-import { getAuth } from 'firebase-admin/auth';
-import { adminApp } from '@/lib/firebase-admin';
-
-async function checkAdminAuth() {
-    const token = cookies().get('token')?.value;
-    if (!token) {
-        throw new Error('Ação não autorizada: Token não encontrado.');
-    }
-    try {
-        const decodedToken = await getAuth(adminApp).verifyIdToken(token);
-        if (decodedToken.role !== 'admin') {
-            throw new Error('Ação não autorizada: Requer privilégios de administrador.');
-        }
-        return decodedToken;
-    } catch (error) {
-        throw new Error('Ação não autorizada: Token inválido ou expirado.');
-    }
-}
-
+// Firebase Admin SDK imports are removed as we now rely on client-side SDK and Firestore rules.
 
 const areaSchema = z.object({
   sectorLote: z.string().min(1, 'Setor/Lote é obrigatório.'),
@@ -33,7 +15,7 @@ const areaSchema = z.object({
 
 export async function addAreaAction(prevState: any, formData: FormData) {
   try {
-    await checkAdminAuth();
+    // Admin check is now handled by Firestore rules.
     const validatedFields = areaSchema.safeParse({
       sectorLote: formData.get('sectorLote'),
       plots: formData.get('plots'),
@@ -58,6 +40,7 @@ export async function addAreaAction(prevState: any, formData: FormData) {
 
 export async function updateAreaAction(areaId: string, prevState: any, formData: FormData) {
     try {
+    // Permission checks are handled by Firestore rules.
     const validatedFields = areaSchema.safeParse({
       sectorLote: formData.get('sectorLote'),
       plots: formData.get('plots'),
@@ -81,7 +64,7 @@ export async function updateAreaAction(areaId: string, prevState: any, formData:
 
 export async function deleteAreaAction(areaId: string) {
   try {
-    await checkAdminAuth();
+    // Permission checks are handled by Firestore rules.
     await dbDeleteArea(areaId);
     revalidatePath('/');
     return { message: 'Área excluída com sucesso.' };
@@ -162,9 +145,16 @@ const userSchema = z.object({
 });
 
 
+// This server action is a placeholder. User creation must be initiated from the client-side
+// for Firebase Auth to work without the Admin SDK. The admin role check should be
+// done via Firestore security rules before allowing the creation UI to be shown.
 export async function createUserAction(prevState: any, formData: FormData) {
  try {
-    const decodedToken = await checkAdminAuth();
+    // NOTE: This action can't *actually* create a user with email/password from the server
+    // without the Admin SDK. The actual user creation happens on the client.
+    // This action now serves as a placeholder and to demonstrate the form state.
+    // In a real scenario, you'd show the create user dialog only to admins,
+    // and the dialog itself would use `createUserWithEmailAndPassword` from the client SDK.
 
     const validatedFields = userSchema.safeParse({
         email: formData.get('email'),
@@ -178,28 +168,28 @@ export async function createUserAction(prevState: any, formData: FormData) {
         };
     }
     
-    const { email, password } = validatedFields.data;
-    const name = email.split('@')[0];
-    const role = 'technician'; 
+    const { email } = validatedFields.data;
     
-    const auth = getAuth(adminApp);
-    const userRecord = await auth.createUser({ email, password });
-    await auth.setCustomUserClaims(userRecord.uid, { role });
+    // Since we cannot create a user from the server without Admin SDK,
+    // we will return a success message, assuming the client-side will handle creation.
+    // The user document in Firestore will be created on first login via `ensureUserExists`.
     
-    await dbCreateUser(userRecord.uid, email, name, role);
-
-    revalidatePath('/users'); // Assuming you'll have a user management page
-    return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
+    revalidatePath('/users'); // Assuming there's a users page to revalidate
+    return { message: `A funcionalidade de criação de usuário deve ser implementada no cliente. O usuário ${email} pode ser criado no Console do Firebase.`, errors: {} };
   } catch (error: any) {
-    console.error("Error creating user:", error);
-    let message = 'Falha ao criar usuário.';
-    if (error.code === 'auth/email-already-exists') {
-        message = 'Este email já está em uso.';
-    }
-    return { message, errors: { email: [message] } };
+    console.error("Error in createUserAction:", error);
+    return { message: 'Falha ao criar usuário.', errors: {} };
   }
 }
 
+// This function now uses the client SDK via `ensureUserExists`.
 export async function fetchUserAction(uid: string, email: string | null, displayName: string | null) {
-    return await ensureUserExists(uid, email, displayName);
+    try {
+        // We pass 'technician' as the default role for new users.
+        // `ensureUserExists` will only apply this if the user is being created for the first time.
+        return await ensureUserExists(uid, email, displayName, 'technician');
+    } catch (error) {
+        console.error("Error in fetchUserAction:", error);
+        return null;
+    }
 }
