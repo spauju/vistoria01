@@ -1,38 +1,32 @@
 
 import * as admin from 'firebase-admin';
 
-let adminApp: admin.app.App | undefined;
-let adminDb: admin.firestore.Firestore | undefined;
-
-function initializeAdmin() {
-  // Prevent re-initialization
-  if (admin.apps.length > 0) {
-    adminApp = admin.apps[0]!;
-    adminDb = admin.firestore();
-    return;
-  }
-
-  const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
-
+// Verifica se o SDK já foi inicializado para evitar erros.
+if (!admin.apps.length) {
   try {
+    const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (serviceAccountString) {
-        const serviceAccount = JSON.parse(serviceAccountString);
-        adminApp = admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-        });
+      // Usa a conta de serviço da variável de ambiente, se disponível.
+      const serviceAccount = JSON.parse(serviceAccountString);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
     } else {
-        // This is for local development and other environments where GOOGLE_APPLICATION_CREDENTIALS might be set.
-        adminApp = admin.initializeApp();
+      // Para desenvolvimento local ou ambientes que usam GOOGLE_APPLICATION_CREDENTIALS.
+      admin.initializeApp();
     }
-    adminDb = admin.firestore();
-  } catch (error) {
-    console.error('Failed to initialize Firebase Admin SDK:', error);
+  } catch (error: any) {
+    console.error('Falha na inicialização do Firebase Admin SDK:', error);
+    // Lançar o erro pode ajudar a diagnosticar problemas de configuração do ambiente.
+    // Em produção, talvez queira lidar com isso de forma diferente.
+    if (error.code !== 'app/duplicate-app') {
+       throw error;
+    }
   }
 }
 
-// Initialize on module load.
-initializeAdmin();
+// Exporta a instância do Firestore após garantir a inicialização.
+const adminDb = admin.firestore();
+const adminApp = admin.apps[0];
 
-// Export the initialized instances, which might be undefined if initialization failed.
-export { adminApp, adminDb };
-
+export { adminDb, adminApp };
