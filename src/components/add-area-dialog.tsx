@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, type ReactNode, useEffect } from 'react';
+import { useState, useTransition, type ReactNode, useEffect, useActionState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -51,7 +51,9 @@ interface AddAreaDialogProps {
 export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
+
+  const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
+  const [state, formAction, isPending] = useActionState(action, { message: '', errors: {} });
 
   const form = useForm<AreaFormValues>({
     resolver: zodResolver(areaSchema),
@@ -73,23 +75,23 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
     formData.append('sectorLote', data.sectorLote);
     formData.append('plots', data.plots);
     formData.append('plantingDate', format(data.plantingDate, 'yyyy-MM-dd'));
-
-    startTransition(async () => {
-      const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
-      const state = await action({ message: '', errors: {} }, formData);
-
-      toast({
-        title: area ? 'Atualização de Área' : 'Cadastro de Área',
-        description: state.message,
-        variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
-      });
-
-      if (!state.errors || Object.keys(state.errors).length === 0) {
-        setOpen(false);
-        form.reset();
-      }
-    });
+    formAction(formData);
   };
+  
+  useEffect(() => {
+    if (state.message && !isPending) {
+        toast({
+            title: area ? 'Atualização de Área' : 'Cadastro de Área',
+            description: state.message,
+            variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
+        });
+        if (!state.errors || Object.keys(state.errors).length === 0) {
+            setOpen(false);
+            form.reset();
+        }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[state, isPending]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
