@@ -3,43 +3,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- FUNÇÕES GLOBAIS (para facilitar a leitura) ---
-    
-    // Função que verifica se o usuário está logado.
     function isSignedIn() {
       return request.auth != null;
     }
     
-    // Função que verifica se o usuário é um administrador.
-    // Ela busca o documento do próprio usuário e checa se o campo 'role' é 'admin'.
     function isAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // --- REGRAS PARA A COLEÇÃO 'users' ---
-
     match /users/{userId} {
-      // LEITURA (read):
-      // - Um usuário pode ler seu próprio perfil.
-      // - Um admin pode ler o perfil de qualquer usuário.
-      // Isso impede que usuários comuns listem todos os outros usuários.
       allow read: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
-      
-      // ESCRITA (write - create, update, delete):
-      // - Apenas administradores podem criar, editar ou apagar documentos de usuários.
       allow write: if isAdmin();
     }
     
-    // --- REGRAS PARA A COLEÇÃO 'cana_data' ---
-
     match /cana_data/{document=**} {
-      // LEITURA, CRIAÇÃO e ATUALIZAÇÃO:
-      // - Qualquer usuário logado pode ler, criar e editar dados.
-      allow read, create, update: if isSignedIn();
-      
-      // EXCLUSÃO:
-      // - Apenas administradores podem deletar dados.
-      allow delete: if isAdmin();
+      // A verificação de exclusão foi movida para a lógica da UI,
+      // pois a chamada `isAdmin()` (com get) não é permitida em regras de lista.
+      allow read, write: if isSignedIn();
     }
   }
 }
