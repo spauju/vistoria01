@@ -3,7 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Allow admins to read/write all user data
     match /users/{userId} {
-      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Allow authenticated users to read their own user data
+    match /users/{userId} {
       allow read: if request.auth.uid == userId;
     }
 
