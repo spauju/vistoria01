@@ -6,7 +6,7 @@ import { app } from '@/lib/firebase';
 import type { User } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { ensureUserExists } from '@/lib/data';
+import { ensureUserExists, getUserById } from '@/lib/data';
 
 
 interface AuthContextType {
@@ -29,21 +29,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleAuthStateChange = useCallback(async (fbUser: FirebaseUser | null) => {
     setLoading(true);
     if (fbUser) {
-        // Force refresh to get custom claims if any.
-        await fbUser.getIdToken(true);
-        const idTokenResult = await fbUser.getIdTokenResult();
-        // The role is stored in the custom claims. Default to 'technician' if not present.
-        const userRole = (idTokenResult.claims.role || 'technician') as User['role'];
-        
         setFirebaseUser(fbUser);
         
-        // This function creates the user in firestore if it does not exist.
-        // We pass the role from the token to be stored.
-        const appUser = await ensureUserExists(fbUser.uid, fbUser.email, fbUser.displayName, userRole);
-        
-        // We set the final user object with the role from the token, which is the source of truth,
-        // overriding whatever may be in the database document.
-        setUser({ ...appUser, role: userRole });
+        // Fetch user profile from Firestore using UID to get the role
+        let appUser = await getUserById(fbUser.uid);
+
+        // If user doesn't exist in Firestore, create them with default role
+        if (!appUser) {
+            appUser = await ensureUserExists(fbUser.uid, fbUser.email, fbUser.displayName);
+        }
+
+        setUser(appUser);
         
         if (pathname === '/login' || pathname === '/rules') {
             router.push('/');

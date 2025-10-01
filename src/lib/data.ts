@@ -25,22 +25,33 @@ export async function getUserById(uid: string): Promise<User | null> {
 }
 
 export async function dbCreateUser(uid: string, email: string, name: string, role: UserRole): Promise<User> {
-    const newUser: User = { id: uid, email, name, role };
+    const newUser: Omit<User, 'id'> = { email, name, role };
     const userDocRef = doc(db, USERS_COLLECTION, uid);
     await setDoc(userDocRef, newUser);
-    console.log("Created user in Firestore:", newUser);
-    return newUser;
+    console.log("Created user in Firestore:", { id: uid, ...newUser });
+    return { id: uid, ...newUser};
 }
 
-export async function ensureUserExists(uid: string, email: string | null, name: string | null, role?: UserRole): Promise<User> {
+export async function ensureUserExists(uid: string, email: string | null, name: string | null, role: UserRole = 'technician'): Promise<User> {
     const existingUser = await getUserById(uid);
     if (existingUser) {
+        // If user exists, but maybe some info is missing (e.g. name), update it.
+        // This can happen if user was created via admin panel but logged in for the first time.
+        const updates: Partial<User> = {};
+        if (!existingUser.name && name) updates.name = name;
+        if (!existingUser.email && email) updates.email = email;
+
+        if (Object.keys(updates).length > 0) {
+            const userDocRef = doc(db, USERS_COLLECTION, uid);
+            await updateDoc(userDocRef, updates);
+            return { ...existingUser, ...updates };
+        }
         return existingUser;
     }
+    // If user doesn't exist, create them
     const userEmail = email || 'no-email@example.com';
     const userName = name || userEmail.split('@')[0];
-    const userRole = role || 'technician';
-    return await dbCreateUser(uid, userEmail, userName, userRole);
+    return await dbCreateUser(uid, userEmail, userName, role);
 }
 
 // --- Area and Inspection Functions ---
