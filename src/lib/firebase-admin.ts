@@ -1,11 +1,9 @@
-'use server';
-
 import * as admin from 'firebase-admin';
 
 // This function should be called only on the server,
 // where environment variables like FIREBASE_SERVICE_ACCOUNT are available.
-let adminApp: admin.app.App;
-let adminDb: admin.firestore.Firestore;
+let adminApp: admin.app.App | undefined;
+let adminDb: admin.firestore.Firestore | undefined;
 
 function initializeAdmin() {
   if (admin.apps.length > 0) {
