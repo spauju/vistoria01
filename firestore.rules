@@ -1,20 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regras para a coleção de usuários
+    // Allow admins to read/write all user data
     match /users/{userId} {
-      // Admins podem ler/escrever qualquer perfil de usuário
       allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      // Usuários autenticados podem ler seu próprio perfil
+    }
+
+    // Allow authenticated users to read their own user data
+    match /users/{userId} {
       allow read: if request.auth.uid == userId;
     }
 
-    // Regras para a coleção de dados da cana
-    match /cana_data/{documentId} {
-      // Permite que usuários autenticados leiam, escrevam, atualizem e excluam documentos individuais
-      allow read, write, update, delete: if request.auth != null;
-      // Permite que usuários autenticados listem (consultem) a coleção
-      allow list: if request.auth != null;
+    // Allow authenticated users to read/write all cana_data
+    match /cana_data/{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
