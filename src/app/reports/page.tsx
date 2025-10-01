@@ -1,15 +1,18 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { getAreas } from '@/lib/data';
 import type { Area, AreaStatus, AreaWithLastInspection } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ReportFilters } from '@/components/report-filters';
 import { ReportTable } from '@/components/report-table';
 import { format, parseISO } from 'date-fns';
+import { ArrowLeft } from 'lucide-react';
 
 export type ReportFiltersState = {
   areaId: string;
@@ -95,7 +98,15 @@ export default function ReportsPage() {
     <div className="flex min-h-screen w-full flex-col">
       <Header />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-        <h1 className="text-2xl font-bold">Relatório de Vistorias</h1>
+        <div className="flex items-center gap-4">
+          <Button asChild variant="outline" size="icon">
+            <Link href="/">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Voltar</span>
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold">Relatório de Vistorias</h1>
+        </div>
         <ReportFilters
           areas={areas}
           filters={filters}
