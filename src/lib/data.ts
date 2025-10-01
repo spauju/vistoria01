@@ -137,19 +137,19 @@ export async function getAreaById(id: string): Promise<Area | undefined> {
 export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status'>): Promise<Area> {
   const nextInspectionDate = format(add(new Date(data.plantingDate), { days: 90 }), 'yyyy-MM-dd');
 
-  const newDocRef = doc(dataCollection);
-
-  const newAreaData = {
+  const newDocRef = await addDoc(dataCollection, {
+    ...data,
+    nextInspectionDate,
+    status: 'Agendada' as const,
+    areaId: null, // This is crucial for the where('areaId', '==', null) query to work
+  });
+  
+  return {
     ...data,
     id: newDocRef.id,
     nextInspectionDate,
     status: 'Agendada' as const,
-    areaId: null, // This is crucial for the where('areaId', '==', null) query to work
-  };
-
-  await setDoc(newDocRef, newAreaData);
-  
-  return newAreaData as Area;
+  } as Area;
 }
 
 export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<Area | null> {

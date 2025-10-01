@@ -33,6 +33,7 @@ export async function addAreaAction(prevState: any, formData: FormData) {
     revalidatePath('/');
     return { message: 'Área adicionada com sucesso.', errors: {} };
   } catch (e) {
+    console.error(e);
     return { message: 'Falha ao adicionar área.', errors: {} };
   }
 }
