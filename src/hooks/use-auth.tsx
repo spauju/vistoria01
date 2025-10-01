@@ -36,15 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (appUser) {
           setUser(appUser);
         } else {
-           // If user is not in the database, they can still be authenticated
-           // but will have no specific role in the app.
-           // They will be treated as non-admin.
-           setUser({
-                id: fbUser.uid,
-                email: fbUser.email || 'no-email',
-                name: fbUser.displayName || 'Anonymous',
-                role: 'technician' // Default to the most restrictive role
-           })
+           // If user is not in the database, they have no specific role.
+           // The UI will treat them as non-admin by default.
+           setUser(null);
         }
         
         if (pathname === '/login' || pathname === '/rules') {
