@@ -1,5 +1,4 @@
 import type {NextConfig} from 'next';
-import withPWA from '@ducanh2912/next-pwa';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -31,10 +30,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    // Adicione a configuração do Turbopack aqui
+    if (!isServer) {
+      // Exemplo de configuração do Turbopack para o cliente
+    }
+    return config;
+  }
 };
 
-export default withPWA({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-})(nextConfig);
+export default nextConfig;
