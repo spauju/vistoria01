@@ -2,38 +2,51 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // --- FUNÇÕES GLOBAIS ---
-
-    // Função que verifica se o usuário está logado.
+    
+    // --- FUNÇÕES DE AJUDA ---
+    
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Função que verifica se o usuário tem a custom claim 'admin'.
     function isAdmin() {
+      // Verifica se o custom claim 'admin' está presente no token do usuário.
+      // Este claim é definido no backend ao criar/promover um usuário.
       return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    function isOwner(userId) {
+      // Verifica se o usuário que faz a requisição é o dono do documento.
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     // --- REGRAS PARA A COLEÇÃO 'users' ---
 
     match /users/{userId} {
-      // LEITURA: Qualquer usuário autenticado pode ler os perfis (para listar técnicos, etc.).
+      // LEITURA (read):
+      // - Qualquer usuário autenticado pode ler os perfis (para listar técnicos, etc.).
+      // - Um admin também pode ler.
       allow read: if isSignedIn();
-      
-      // ATUALIZAÇÃO: Apenas o próprio usuário pode atualizar seu perfil.
-      allow update: if isSignedIn() && request.auth.uid == userId;
 
-      // CRIAÇÃO E EXCLUSÃO: Apenas administradores.
+      // ESCRITA (update):
+      // - Um usuário só pode editar seu próprio perfil.
+      // - Um admin pode editar qualquer perfil.
+      allow update: if isOwner(userId) || isAdmin();
+      
+      // CRIAÇÃO E EXCLUSÃO:
+      // - Apenas administradores podem criar ou apagar documentos de usuários.
       allow create, delete: if isAdmin();
     }
     
     // --- REGRAS PARA A COLEÇÃO 'cana_data' ---
 
-    match /cana_data/{document=**} {
-      // LEITURA E ATUALIZAÇÃO: Qualquer usuário autenticado pode ler e atualizar.
+    match /cana_data/{documentId} {
+      // LEITURA e ATUALIZAÇÃO:
+      // - Qualquer usuário logado (técnico ou admin) pode ler e atualizar dados.
       allow read, update: if isSignedIn();
       
-      // CRIAÇÃO E EXCLUSÃO: Apenas administradores.
+      // CRIAÇÃO e EXCLUSÃO:
+      // - Apenas administradores podem criar ou deletar dados.
       allow create, delete: if isAdmin();
     }
   }
