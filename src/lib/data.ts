@@ -46,7 +46,7 @@ export async function ensureUserExists(uid: string, email: string | null, name: 
 // --- Area and Inspection Functions ---
 
 export async function getAreas(): Promise<AreaWithLastInspection[]> {
-    const q = query(collection(db, AREAS_COLlection), orderBy('nextInspectionDate', 'asc'));
+    const q = query(collection(db, AREAS_COLLECTION), orderBy('nextInspectionDate', 'asc'));
     const snapshot = await getDocs(q);
     
     const areas: AreaWithLastInspection[] = [];
