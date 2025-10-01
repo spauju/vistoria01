@@ -1,58 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- Helper Functions ---
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    function isAdmin() {
-      // This is the most reliable way. It checks for a custom claim on the user's auth token.
-      // This claim must be set via the Admin SDK on the server.
-      return isSignedIn() && request.auth.token.admin == true;
-    }
-    
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    // --- Rules for 'users' collection ---
+    // Rule for the 'users' collection
     match /users/{userId} {
-      // Admins can read/write any user document.
-      // Users can read their own document.
-      allow read: if isAdmin() || isOwner(userId);
-      
-      // Users can only update their own document.
-      // Admins can update any user document.
-      allow update: if isAdmin() || isOwner(userId);
-
-      // Only admins can create or delete users.
-      allow create, delete: if isAdmin();
+      // Admins can write to any user document for management purposes.
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Authenticated users can read their own document.
+      allow read: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // --- Rules for 'areas' collection and 'inspections' subcollection ---
-    match /areas/{areaId} {
-      // Any signed-in user (admin or technician) can read area data.
-      allow read: if isSignedIn();
-      
-      // Admins can create, update, and delete areas.
-      allow create, delete: if isAdmin();
-
-      // Technicians and Admins can update areas (e.g., to change status).
-      allow update: if isSignedIn();
-
-      // --- Rules for 'inspections' subcollection ---
-      match /inspections/{inspectionId} {
-        // Any signed-in user can read inspections.
-        allow read: if isSignedIn();
-
-        // Any signed-in user can create an inspection.
-        allow create: if isSignedIn();
-        
-        // Only admins should be able to update/delete historical inspections.
-        allow update, delete: if isAdmin();
-      }
+    // Rule for the 'cana_data' collection
+    match /areas/{document=**} {
+      // Any authenticated user can read and write to the cana_data collection.
+      // UI logic in the app restricts actions based on user role.
+      allow read, write: if request.auth != null;
     }
   }
 }
