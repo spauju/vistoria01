@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition, type ReactNode } from 'react';
+import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -30,8 +30,9 @@ import { CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { addAreaAction, updateAreaAction } from '@/app/actions';
+import { addArea, updateArea } from '@/lib/db';
 import type { Area } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 const areaSchema = z.object({
   sectorLote: z.string().min(1, 'Setor/Lote é obrigatório.'),
@@ -44,7 +45,7 @@ const areaSchema = z.object({
 type AreaFormValues = z.infer<typeof areaSchema>;
 
 interface AddAreaDialogProps {
-  children: ReactNode;
+  children: React.ReactNode;
   area?: Area;
 }
 
@@ -52,6 +53,7 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<AreaFormValues>({
     resolver: zodResolver(areaSchema),
@@ -69,24 +71,38 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   });
 
   const onSubmit = (data: AreaFormValues) => {
-    const formData = new FormData();
-    formData.append('sectorLote', data.sectorLote);
-    formData.append('plots', data.plots);
-    formData.append('plantingDate', format(data.plantingDate, 'yyyy-MM-dd'));
-
     startTransition(async () => {
-      const action = area ? updateAreaAction.bind(null, area.id) : addAreaAction;
-      const state = await action({ message: '', errors: {} }, formData);
+      try {
+        if (area) {
+          await updateArea(area.id, {
+            sectorLote: data.sectorLote,
+            plots: data.plots,
+            plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
+          });
+        } else {
+          await addArea({
+            sectorLote: data.sectorLote,
+            plots: data.plots,
+            plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
+          });
+        }
 
-      toast({
-        title: area ? 'Atualização de Área' : 'Cadastro de Área',
-        description: state.message,
-        variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
-      });
+        toast({
+          title: area ? 'Atualização de Área' : 'Cadastro de Área',
+          description: `Área ${area ? 'atualizada' : 'cadastrada'} com sucesso.`,
+        });
 
-      if (!state.errors || Object.keys(state.errors).length === 0) {
         setOpen(false);
         form.reset();
+        // This is a client-side trick to force a refresh of server components.
+        router.refresh(); 
+
+      } catch (error: any) {
+        toast({
+          title: 'Erro',
+          description: error.message || `Falha ao ${area ? 'atualizar' : 'cadastrar'} área. Verifique as regras de segurança do Firestore.`,
+          variant: 'destructive',
+        });
       }
     });
   };

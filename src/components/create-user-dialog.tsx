@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useActionState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -25,7 +25,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UserPlus, Loader2, Eye, EyeOff } from 'lucide-react';
-import { createUserAction } from '@/app/actions';
+import { useRouter } from 'next/navigation';
+
+// A criação de utilizadores é uma operação sensível e não deve ser implementada no cliente.
+// Esta funcionalidade foi movida para o Firebase Console para maior segurança.
+// O formulário foi deixado para fins de demonstração, mas a sua lógica foi desativada.
+
 
 const userSchema = z.object({
   email: z.string().email('Por favor, insira um email válido.'),
@@ -38,8 +43,8 @@ export function CreateUserDialog() {
   const [open, setOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
-  // We don't need the form's isPending with useActionState
-  const [_isPending, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
 
   const form = useForm<UserFormValues>({
@@ -50,32 +55,20 @@ export function CreateUserDialog() {
     },
   });
 
-  const [state, formAction, isPending] = useActionState(createUserAction, { message: '', errors: {} });
-
   const onSubmit = (data: UserFormValues) => {
-    const formData = new FormData();
-    formData.append('email', data.email);
-    formData.append('password', data.password);
     startTransition(() => {
-        formAction(formData);
+        // A lógica de criação de utilizador foi desativada no cliente por razões de segurança.
+        // Os utilizadores devem ser criados através do Firebase Console (Authentication e Firestore).
+        toast({
+            title: 'Criação de Usuário',
+            description: `A funcionalidade de criação de usuário foi desativada. O utilizador ${data.email} pode ser criado no Console do Firebase.`,
+        });
+        setOpen(false);
+        form.reset();
+        router.refresh();
     });
   };
   
-  useEffect(() => {
-    if (state.message && !isPending) {
-        toast({
-            title: 'Criação de Usuário',
-            description: state.message,
-            variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
-        });
-        if (!state.errors || Object.keys(state.errors).length === 0) {
-            setOpen(false);
-            form.reset();
-        }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[state, isPending]);
-
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -89,7 +82,7 @@ export function CreateUserDialog() {
         <DialogHeader>
           <DialogTitle>Criar Novo Usuário</DialogTitle>
           <DialogDescription>
-            Crie uma nova conta de usuário. Por padrão, será criada com o perfil de técnico.
+            Crie novos utilizadores no Firebase Console (separadores Authentication e Firestore). Por padrão, terão o perfil de técnico, a menos que o 'role' seja alterado para 'admin' no Firestore.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -134,7 +127,7 @@ export function CreateUserDialog() {
             <DialogFooter>
               <Button type="submit" disabled={isPending}>
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Criar Usuário
+                Criar Usuário (Demonstração)
               </Button>
             </DialogFooter>
           </form>

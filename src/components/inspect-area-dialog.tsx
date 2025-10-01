@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useActionState, type ReactNode } from 'react';
+import { useState, useTransition, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,10 +27,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, WandSparkles } from 'lucide-react';
-import { addInspectionAction, getAISuggestionsAction } from '@/app/actions';
+import { getAISuggestionsAction } from '@/app/actions';
+import { addInspection } from '@/lib/db';
 import type { Area } from '@/lib/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useRouter } from 'next/navigation';
 
 const inspectionSchema = z.object({
   heightCm: z.coerce.number().min(1, "Altura é obrigatória."),
@@ -50,6 +52,7 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [isAiLoading, startAiTransition] = useTransition();
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<InspectionFormValues>({
     resolver: zodResolver(inspectionSchema),
@@ -60,18 +63,31 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
     },
   });
 
-  const [state, formAction] = useActionState(addInspectionAction.bind(null, area.id), { message: '', errors: {} });
-
   const onSubmit = (data: InspectionFormValues) => {
-    const formData = new FormData();
-    formData.append('heightCm', data.heightCm.toString());
-    formData.append('observations', data.observations || '');
-    if (data.atSize) {
-      formData.append('atSize', 'on');
-    }
+    startTransition(async () => {
+      try {
+        await addInspection(area.id, {
+          heightCm: data.heightCm,
+          observations: data.observations || '',
+          atSize: data.atSize,
+          date: new Date().toISOString().split('T')[0],
+        });
 
-    startTransition(() => {
-      formAction(formData);
+        toast({
+          title: 'Vistoria de Área',
+          description: 'Vistoria adicionada com sucesso.',
+        });
+
+        setOpen(false);
+        form.reset();
+        router.refresh();
+      } catch (error: any) {
+        toast({
+          title: 'Erro',
+          description: error.message || 'Falha ao adicionar vistoria.',
+          variant: 'destructive',
+        });
+      }
     });
   };
 
@@ -96,19 +112,6 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
         });
       }
     });
-  }
-
-  if (state.message && !isPending) {
-    toast({
-      title: 'Vistoria de Área',
-      description: state.message,
-      variant: state.errors && Object.keys(state.errors).length > 0 ? 'destructive' : 'default',
-    });
-    if (!state.errors || Object.keys(state.errors).length === 0) {
-      setOpen(false);
-      form.reset();
-    }
-    state.message = '';
   }
 
   return (
