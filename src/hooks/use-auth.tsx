@@ -1,12 +1,13 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth';
 import { app } from '@/lib/firebase';
-import { getUserById } from '@/lib/data';
 import type { User } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
+import { fetchUserAction } from '@/app/actions';
+
 
 interface AuthContextType {
   user: User | null;
@@ -31,12 +32,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (fbUser) {
         setFirebaseUser(fbUser);
         const token = await fbUser.getIdToken(true);
-        Cookies.set('idToken', token);
+        Cookies.set('idToken', token, { secure: true, sameSite: 'strict' });
         
-        const appUser = await getUserById(fbUser.uid);
+        // Use a server action to fetch user data securely
+        const appUser = await fetchUserAction(fbUser.uid);
         setUser(appUser || null);
 
-        if (pathname === '/login') {
+        if (pathname === '/login' || pathname === '/rules') {
             router.push('/');
         }
       } else {
@@ -51,11 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [auth, router, pathname]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth, router]);
 
   const signOut = async () => {
     await firebaseSignOut(auth);
-    // O onAuthStateChanged tratará do redirecionamento e da limpeza do estado.
+    // onAuthStateChanged will handle the redirect and state cleanup
   };
 
   return (

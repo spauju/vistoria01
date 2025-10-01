@@ -9,7 +9,6 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where,
   Timestamp,
   writeBatch,
   limit,
@@ -21,9 +20,8 @@ import { adminApp, adminDb } from './firebase-admin';
 import type { Area, Inspection, User, AreaWithLastInspection } from '@/lib/types';
 import { add, format } from 'date-fns';
 
-// NOTE: All server-side data access now uses the adminDb to bypass client-side security rules,
-// as Server Actions run with admin privileges. The security is enforced by checking user roles
-// within the Server Actions themselves.
+// NOTE: All server-side data access MUST now use the adminDb to bypass client-side security rules.
+// The security is enforced by checking user roles within the Server Actions themselves.
 
 export async function getUserById(uid: string): Promise<User | undefined> {
   if (!uid || !adminDb) {
@@ -42,7 +40,7 @@ export async function getUserById(uid: string): Promise<User | undefined> {
         const authUser = await getAdminAuth(adminApp).getUser(uid);
         if (authUser.email) {
             console.log(`Creating missing user document for ${uid}`);
-            const role = authUser.email === 'admin@canacontrol.com' ? 'admin' : 'technician';
+            const role = authUser.email.endsWith('@canacontrol.com') && authUser.email.startsWith('admin') ? 'admin' : 'technician';
             const name = authUser.displayName || authUser.email.split('@')[0] || 'Usuário';
             return await dbCreateUser(uid, authUser.email, name, role);
         }

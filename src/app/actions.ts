@@ -5,8 +5,6 @@ import { z } from 'zod';
 import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById, dbCreateUser, getUserById } from '@/lib/data';
 import { add, format } from 'date-fns';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { app } from '@/lib/firebase';
 import { cookies } from 'next/headers';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { adminApp } from '@/lib/firebase-admin';
@@ -182,38 +180,46 @@ export async function createUserAction(prevState: any, formData: FormData) {
   if (!adminApp || !idToken) {
     return { message: 'Ação não autorizada.', errors: {}};
   }
-  const decodedToken = await getAdminAuth(adminApp).verifyIdToken(idToken);
-  if(decodedToken.admin !== true) {
-     return { message: 'Ação não autorizada. Apenas administradores podem criar usuários.', errors: {}};
-  }
   
-  const { email, password } = validatedFields.data;
-  const auth = getAuth(app);
-
   try {
-    // We cannot create users with email/password directly on the client SDK
-    // This needs to be done via Admin SDK. For now, this will fail but the structure is here.
-    // The correct way is to call an endpoint that uses the Admin SDK.
-    // For this app, we'll simulate the creation flow and rely on Firestore rules.
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const { uid } = userCredential.user;
+    const decodedToken = await getAdminAuth(adminApp).verifyIdToken(idToken);
+    if(decodedToken.admin !== true) {
+        return { message: 'Ação não autorizada. Apenas administradores podem criar usuários.', errors: {}};
+    }
+  } catch (error) {
+    return { message: 'Ação não autorizada. Token inválido.', errors: {}};
+  }
+
+  
+  const { email } = validatedFields.data;
+  
+  try {
+    const auth = getAdminAuth(adminApp);
+    const userRecord = await auth.createUser({
+        email: email,
+        password: formData.get('password') as string,
+    });
     
+    const { uid } = userRecord;
     const name = email.split('@')[0];
     // New users are always technicians by default.
     const role = 'technician'; 
     
     await dbCreateUser(uid, email, name, role);
 
-    revalidatePath('/');
+    revalidatePath('/users'); // Or wherever you list users
     return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
   } catch (error: any) {
     let message = 'Falha ao criar usuário.';
-    if (error.code === 'auth/email-already-in-use') {
+    if (error.code === 'auth/email-already-exists') {
        message = 'Este email já está em uso.';
-    } else if (error.code === 'auth/operation-not-allowed') {
-       message = 'Criação de usuário por email/senha não está habilitada.'
     }
     console.error("Create user error:", error);
     return { message, errors: { email: [message] } };
   }
+}
+
+// This is the new action to be called from the client-side AuthProvider
+export async function fetchUserAction(uid: string) {
+    return await getUserById(uid);
 }
