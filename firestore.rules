@@ -1,15 +1,25 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return getUserData().role == 'admin';
+    }
+
     match /users/{userId} {
-      // Authenticated users can read and write their own user document.
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth.uid == userId;
+      allow create: if isAdmin();
     }
 
     match /cana_data/{document=**} {
-      // Any authenticated user can read and write to the cana_data collection.
-      // UI logic in the app restricts actions based on user role.
+      // Allow read/write for any authenticated user.
+      // The UI and server actions already restrict specific actions (like delete) based on role.
+      // This rule avoids complex cross-collection queries in rules, which cause "Missing or insufficient permissions".
       allow read, write: if request.auth != null;
     }
   }
