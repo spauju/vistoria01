@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById, dbCreateUser, getUserByEmail } from '@/lib/data';
+import { addArea as dbAddArea, updateArea as dbUpdateArea, deleteArea as dbDeleteArea, addInspection as dbAddInspection, getAreaById, dbCreateUser, getUserById } from '@/lib/data';
 import { add, format } from 'date-fns';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
@@ -161,24 +161,29 @@ export async function createUserAction(prevState: any, formData: FormData) {
   const auth = getAuth(app);
 
   try {
-    const existingUser = await getUserByEmail(email);
-    if (existingUser) {
-         return { message: 'Este email já está em uso.', errors: { email: ['Este email já está em uso.'] } };
-    }
-    
+    // We create the user in Firebase Auth first
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const { uid } = userCredential.user;
+
+    // Check if user already exists in Firestore DB (should not happen in a clean sign-up)
+    const existingUser = await getUserById(uid);
+    if (existingUser) {
+         return { message: 'Este usuário já existe no banco de dados.', errors: { email: ['Este usuário já existe no banco de dados.'] } };
+    }
+    
     const name = email.split('@')[0];
-    const role = email === 'admin@canacontrol.com' ? 'admin' : 'technician';
+    // All new users created through this action are technicians
+    const role = 'technician';
     
     await dbCreateUser(uid, email, name, role);
 
-    revalidatePath('/login');
+    // Revalidate, but don't redirect here. The login page will handle redirection on auth state change.
+    revalidatePath('/');
     return { message: `Usuário ${email} criado com sucesso como técnico.`, errors: {} };
   } catch (error: any) {
     let message = 'Falha ao criar usuário.';
     if (error.code === 'auth/email-already-in-use') {
-       message = 'Este email já está em uso.';
+       message = 'Este email já está em uso na autenticação do Firebase.';
     }
     return { message, errors: { email: [message] } };
   }

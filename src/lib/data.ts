@@ -23,20 +23,19 @@ import { add, format } from 'date-fns';
 const usersCollection = collection(db, 'users');
 const dataCollection = collection(db, 'cana_data');
 
-// IMPORTANT: This function now requires the user's UID from Firebase Auth.
+
 export async function getUserById(uid: string): Promise<User | undefined> {
   if (!uid) {
     return undefined;
   }
-  
   const userDocRef = doc(db, 'users', uid);
-  const userDoc = await getDoc(userDocRef);
+  const userDocSnap = await getDoc(userDocRef);
 
-  if (userDoc.exists()) {
-    return { id: userDoc.id, ...userDoc.data() } as User;
-  } else {
-    return undefined;
+  if (userDocSnap.exists()) {
+    return { id: userDocSnap.id, ...userDocSnap.data() } as User;
   }
+  
+  return undefined;
 }
 
 export async function getAreas(): Promise<AreaWithLastInspection[]> {
@@ -153,23 +152,11 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
 }
 
 
-export async function getUserByEmail(email: string): Promise<User | undefined> {
-  if (!email) {
-    return undefined;
-  }
-  const q = query(usersCollection, where("email", "==", email), limit(1));
-  const querySnapshot = await getDocs(q);
-  if (querySnapshot.empty) {
-    return undefined;
-  }
-  const userDoc = querySnapshot.docs[0];
-  return { id: userDoc.id, ...userDoc.data() } as User;
-}
-
 export async function dbCreateUser(uid: string, email: string, name: string, role: 'admin' | 'technician'): Promise<User> {
-  const existingUserDoc = await getDoc(doc(usersCollection, uid));
+  const userDocRef = doc(usersCollection, uid);
+  const existingUserDoc = await getDoc(userDocRef);
+  
   if (existingUserDoc.exists()) {
-    // Optionally update user info here if it can change
     const user = { id: existingUserDoc.id, ...existingUserDoc.data() } as User;
     return user;
   }
@@ -180,6 +167,6 @@ export async function dbCreateUser(uid: string, email: string, name: string, rol
     role,
   };
 
-  await setDoc(doc(usersCollection, uid), newUser);
+  await setDoc(userDocRef, newUser);
   return { ...newUser, id: uid };
 }
