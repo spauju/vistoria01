@@ -1,4 +1,3 @@
-'use server';
 
 import admin from 'firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
