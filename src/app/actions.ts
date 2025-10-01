@@ -69,19 +69,22 @@ export async function updateAreaAction(areaId: string, prevState: any, formData:
 
 export async function deleteAreaAction(areaId: string) {
   try {
-    // A verificação de permissão agora é feita primariamente pelas regras do Firestore.
-    // A lógica de UI já esconde o botão para não-admins.
-    // Manter a verificação no servidor é uma boa prática de segurança em profundidade.
     const idToken = cookies().get('idToken')?.value;
-    if (idToken) {
+    
+    // Check if adminApp is initialized before using it
+    if (adminApp && idToken) {
         const decodedToken = await getAdminAuth(adminApp).verifyIdToken(idToken);
         const user = await getUserById(decodedToken.uid);
         if (user?.role !== 'admin') {
             return { message: 'Ação não autorizada. Apenas administradores podem excluir áreas.' };
         }
+    } else if (!adminApp) {
+        // If adminApp is not available, we can't verify admin role on the server.
+        // The Firestore rules should be the primary enforcer.
+        // We log a warning and proceed, relying on Firestore rules to deny the request.
+        console.warn('Firebase Admin SDK não inicializado. A verificação da função de administrador para exclusão está sendo ignorada no servidor. A segurança depende das Regras do Firestore.');
     } else {
-        // Se não há token, a regra do Firestore irá barrar a operação.
-        // Podemos retornar uma mensagem genérica ou deixar a regra do Firestore agir.
+        // No token, but we proceed, letting Firestore rules handle it.
     }
 
     await dbDeleteArea(areaId);
@@ -89,7 +92,7 @@ export async function deleteAreaAction(areaId: string) {
     return { message: 'Área excluída com sucesso.' };
   } catch (e) {
     console.error('Falha ao excluir área:', e);
-    // O erro de permissão do Firestore será capturado aqui.
+    // Firestore permission error will be caught here.
     return { message: 'Falha ao excluir área. Verifique suas permissões.' };
   }
 }

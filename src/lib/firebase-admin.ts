@@ -1,22 +1,42 @@
+'use server';
+
 import * as admin from 'firebase-admin';
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-  : undefined;
+// This function should be called only on the server,
+// where environment variables like FIREBASE_SERVICE_ACCOUNT are available.
+let adminApp: admin.app.App;
+let adminDb: admin.firestore.Firestore;
 
-if (!admin.apps.length) {
-  if (serviceAccount) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
+function initializeAdmin() {
+  if (admin.apps.length > 0) {
+    adminApp = admin.apps[0]!;
+    adminDb = admin.firestore();
+    return;
+  }
+
+  const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+  if (serviceAccountString) {
+    try {
+      const serviceAccount = JSON.parse(serviceAccountString);
+      adminApp = admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      adminDb = admin.firestore();
+    } catch (error) {
+      console.error('Error parsing FIREBASE_SERVICE_ACCOUNT or initializing Firebase Admin:', error);
+      // Fallback to a non-initialized state if parsing or init fails.
+      // This will prevent crashes, but admin features will not work.
+    }
   } else {
-    // This fallback is for environments where the service account is not set.
-    // It's useful for local development if you've logged in with `gcloud auth application-default login`.
-    // However, it can cause issues in some environments if not configured correctly.
-    // A service account is the most reliable method.
-    admin.initializeApp();
+    // If service account is not provided, admin features will be disabled.
+    // This prevents the app from crashing in local/dev environments.
+    console.warn('FIREBASE_SERVICE_ACCOUNT is not set. Firebase Admin features will be disabled.');
   }
 }
 
-export const adminApp = admin.apps[0]!;
-export const adminDb = admin.firestore();
+// Initialize on module load.
+initializeAdmin();
+
+// Export the initialized instances, which might be undefined if initialization failed.
+export { adminApp, adminDb };
