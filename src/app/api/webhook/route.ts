@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const makeResponse = await fetch(MAKE_WEBHOOK_URL, {
       method: 'POST',
       headers: headers,
-      body: JSON.stringify(payload), // Alterado de volta para stringify para garantir consistência
+      body: JSON.stringify(payload), // Garante que o corpo é uma string JSON válida
     });
 
     if (!makeResponse.ok) {
@@ -36,15 +36,14 @@ export async function POST(request: Request) {
       });
     }
 
-    // Retorna a resposta do Make.com para o nosso cliente
+    // Tenta retornar a resposta do Make.com como JSON.
+    // Se falhar (ex: o Make.com respondeu com texto simples como "Accepted"), retorna o texto.
     try {
         const responseData = await makeResponse.json();
         return NextResponse.json(responseData, { status: makeResponse.status });
     } catch (e) {
-        // Se o Make.com responder com "Accepted" (texto simples), por exemplo
         return new NextResponse(await makeResponse.text(), { status: makeResponse.status });
     }
-
 
   } catch (error: any) {
     console.error('Error in webhook handler:', error);
