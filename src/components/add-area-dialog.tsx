@@ -28,9 +28,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, add } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { addAreaAction, updateAreaAction } from '@/app/actions';
+import { addArea, updateArea } from '@/lib/db';
+import { notifyWebhook } from '@/lib/webhook';
 import type { Area } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
@@ -72,37 +73,53 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
 
   const onSubmit = (data: AreaFormValues) => {
     startTransition(async () => {
-      let result;
-      if (area) {
-        const payload = {
-          sectorLote: data.sectorLote,
-          plots: data.plots,
-          plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
-        };
-        result = await updateAreaAction(area.id, payload);
-      } else {
-        const newAreaData = {
+      try {
+        if (area) {
+          const payload = {
             sectorLote: data.sectorLote,
             plots: data.plots,
             plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
-        };
-        result = await addAreaAction(newAreaData);
-      }
-
-      if (result.success) {
-        toast({
-          title: area ? 'Atualização de Área' : 'Cadastro de Área',
-          description: `Área ${area ? 'atualizada' : 'cadastrada'} com sucesso.`,
-        });
+          };
+          await updateArea(area.id, payload);
+          await notifyWebhook({
+            event: 'area_updated',
+            areaId: area.id,
+            updates: payload,
+          });
+          toast({
+            title: 'Atualização de Área',
+            description: 'Área atualizada com sucesso.',
+          });
+        } else {
+          const nextInspectionDate = add(data.plantingDate, { days: 90 }).toISOString().split('T')[0];
+          const newAreaData: Omit<Area, 'id'> = {
+              sectorLote: data.sectorLote,
+              plots: data.plots,
+              plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
+              nextInspectionDate,
+              status: 'Agendada' as const,
+              inspections: [],
+          };
+          const createdArea = await addArea(newAreaData);
+          await notifyWebhook({
+            event: 'area_created',
+            area: createdArea,
+          });
+          toast({
+            title: 'Cadastro de Área',
+            description: 'Área cadastrada com sucesso.',
+          });
+        }
 
         setOpen(false);
         form.reset();
         window.dispatchEvent(new Event('refresh-data'));
         router.refresh();
-      } else {
+      } catch (error: any) {
+        console.error("Error submitting form: ", error);
         toast({
           title: 'Erro',
-          description: result.error || `Falha ao ${area ? 'atualizar' : 'cadastrar'} área.`,
+          description: error.message || `Falha ao ${area ? 'atualizar' : 'cadastrar'} área. Verifique as permissões.`,
           variant: 'destructive',
         });
       }

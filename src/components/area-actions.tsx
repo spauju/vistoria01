@@ -29,10 +29,11 @@ import {
     DialogDescription
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, MoreHorizontal, Pencil, Trash2, CalendarPlus, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, CalendarPlus, Loader2 } from 'lucide-react';
 import { AddAreaDialog } from './add-area-dialog';
 import type { Area } from '@/lib/types';
-import { deleteAreaAction, rescheduleAreaAction } from '@/app/actions';
+import { deleteArea, updateArea } from '@/lib/db';
+import { notifyWebhook } from '@/lib/webhook';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
@@ -58,15 +59,20 @@ function RescheduleDialog({ area }: { area: Area }) {
         }
         startTransition(async () => {
             const newDate = date.toISOString().split('T')[0];
-            const result = await rescheduleAreaAction(area.id, newDate);
-            
-            if (result.success) {
+            try {
+                const payload = { nextInspectionDate: newDate };
+                await updateArea(area.id, payload);
+                await notifyWebhook({
+                    event: 'area_rescheduled',
+                    areaId: area.id,
+                    ...payload
+                });
                 toast({ title: 'Reagendamento', description: 'Vistoria reagendada com sucesso.' });
                 setOpen(false);
                 window.dispatchEvent(new Event('refresh-data'));
                 router.refresh();
-            } else {
-                toast({ title: 'Erro', description: result.error || 'Falha ao reagendar vistoria.', variant: 'destructive'});
+            } catch (error: any) {
+                toast({ title: 'Erro', description: error.message || 'Falha ao reagendar vistoria.', variant: 'destructive'});
             }
         });
     }
@@ -118,9 +124,12 @@ export function AreaActions({ area }: AreaActionsProps) {
 
   const handleDelete = () => {
     startTransition(async () => {
-      const result = await deleteAreaAction(area.id);
-      
-      if (result.success) {
+      try {
+        await deleteArea(area.id);
+        await notifyWebhook({
+            event: 'area_deleted',
+            areaId: area.id,
+        });
         toast({
             title: 'Exclusão de Área',
             description: 'Área excluída com sucesso.',
@@ -128,10 +137,10 @@ export function AreaActions({ area }: AreaActionsProps) {
         setAlertOpen(false);
         window.dispatchEvent(new Event('refresh-data'));
         router.refresh();
-      } else {
+      } catch (error: any) {
          toast({
             title: 'Erro de Exclusão',
-            description: result.error || 'Falha ao excluir área. Verifique as regras de segurança.',
+            description: error.message || 'Falha ao excluir área. Verifique as regras de segurança.',
             variant: 'destructive',
         });
       }

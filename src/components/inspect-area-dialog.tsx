@@ -27,9 +27,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, WandSparkles } from 'lucide-react';
-import { inspectAreaAction } from '@/app/actions';
+import { addInspection } from '@/lib/db';
+import { notifyWebhook } from '@/lib/webhook';
 import { suggestInspectionObservation } from '@/ai/flows/suggest-inspection-observation';
-import type { Area, SuggestInspectionObservationInput } from '@/lib/types';
+import type { Area, SuggestInspectionObservationInput, Inspection } from '@/lib/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
@@ -65,15 +66,24 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
 
   const onSubmit = (data: InspectionFormValues) => {
     startTransition(async () => {
-      const inspectionPayload = {
-        heightCm: data.heightCm,
-        observations: data.observations || '',
-        atSize: data.atSize,
-        date: new Date().toISOString().split('T')[0],
-      };
-      const result = await inspectAreaAction(area.id, inspectionPayload);
+      try {
+        const inspectionPayload: Omit<Inspection, 'id' | 'areaId'> = {
+          heightCm: data.heightCm,
+          observations: data.observations || '',
+          atSize: data.atSize,
+          date: new Date().toISOString().split('T')[0],
+        };
+        
+        const { newStatus, newNextInspectionDate } = await addInspection(area.id, inspectionPayload);
+        
+        await notifyWebhook({
+            event: 'area_inspected',
+            areaId: area.id,
+            inspection: inspectionPayload,
+            newStatus,
+            newNextInspectionDate,
+        });
 
-      if (result.success) {
         toast({
           title: 'Vistoria de Área',
           description: 'Vistoria adicionada com sucesso.',
@@ -83,10 +93,11 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
         form.reset();
         window.dispatchEvent(new Event('refresh-data'));
         router.refresh();
-      } else {
+      } catch (error: any) {
+        console.error('Error submitting inspection:', error);
         toast({
           title: 'Erro',
-          description: result.error || 'Falha ao adicionar vistoria.',
+          description: error.message || 'Falha ao adicionar vistoria.',
           variant: 'destructive',
         });
       }
