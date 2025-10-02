@@ -1,11 +1,14 @@
 'use client';
 
+const API_KEY = process.env.NEXT_PUBLIC_WEBHOOK_API_KEY;
+
 export async function notifyWebhook(payload: any) {
   try {
     const response = await fetch('/api/webhook', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`,
       },
       body: JSON.stringify(payload),
     });

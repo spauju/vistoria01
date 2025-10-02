@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 
 const WEBHOOK_URL = 'https://hook.eu2.make.com/3gux6vcanm0m65m65qa5jd89nqmj348p8f';
+const API_KEY = process.env.WEBHOOK_API_KEY;
 
 export async function POST(request: Request) {
   try {
+    const authHeader = request.headers.get('Authorization');
+    if (!API_KEY || authHeader !== `Bearer ${API_KEY}`) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const payload = await request.json();
 
     // Forward the payload to the external webhook
