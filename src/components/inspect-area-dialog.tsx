@@ -33,6 +33,7 @@ import type { Area, SuggestInspectionObservationInput } from '@/lib/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
+import { notifyWebhook } from '@/lib/webhook';
 
 const inspectionSchema = z.object({
   heightCm: z.coerce.number().min(1, "Altura é obrigatória."),
@@ -66,11 +67,20 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
   const onSubmit = (data: InspectionFormValues) => {
     startTransition(async () => {
       try {
-        await addInspection(area.id, {
+        const inspectionPayload = {
           heightCm: data.heightCm,
           observations: data.observations || '',
           atSize: data.atSize,
           date: new Date().toISOString().split('T')[0],
+        };
+        const { newStatus, newNextInspectionDate } = await addInspection(area.id, inspectionPayload);
+
+        await notifyWebhook({
+            event: 'area_inspected',
+            areaId: area.id,
+            inspection: inspectionPayload,
+            newStatus,
+            newNextInspectionDate,
         });
 
         toast({

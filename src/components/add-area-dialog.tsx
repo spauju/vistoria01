@@ -33,6 +33,7 @@ import { ptBR } from 'date-fns/locale';
 import { addArea, updateArea } from '@/lib/db';
 import type { Area } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { notifyWebhook } from '@/lib/webhook';
 
 const areaSchema = z.object({
   sectorLote: z.string().min(1, 'Setor/Lote é obrigatório.'),
@@ -80,6 +81,13 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
             plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
           };
           await updateArea(area.id, payload);
+          // Notify webhook about update
+          await notifyWebhook({
+            event: 'area_updated',
+            areaId: area.id,
+            ...payload,
+          });
+
         } else {
           const nextInspectionDate = add(data.plantingDate, { days: 90 }).toISOString().split('T')[0];
           const newAreaData: Omit<Area, 'id'> = {
@@ -90,7 +98,13 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
               status: 'Agendada' as const,
               inspections: [],
           };
-          await addArea(newAreaData);
+          const createdArea = await addArea(newAreaData);
+          // Notify webhook about creation
+          await notifyWebhook({
+            event: 'area_created',
+            areaId: createdArea.id,
+            ...createdArea,
+          });
         }
 
         toast({

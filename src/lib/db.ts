@@ -95,10 +95,11 @@ export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): P
 }
 
 export async function deleteArea(id: string): Promise<void> {
-    await deleteDoc(doc(db, AREAS_COLLECTION, id));
+    const docRef = doc(db, AREAS_COLLECTION, id);
+    await deleteDoc(docRef);
 }
 
-export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<{ newStatus: Area['status'] }> {
+export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<{ newStatus: Area['status'], newNextInspectionDate: string }> {
     const areaRef = doc(db, AREAS_COLLECTION, areaId);
 
     const newInspection: Omit<Inspection, 'areaId'> = {
@@ -119,5 +120,5 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         inspections: arrayUnion(newInspection)
     });
 
-    return { newStatus };
+    return { newStatus, newNextInspectionDate };
 }

@@ -39,6 +39,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
+import { notifyWebhook } from '@/lib/webhook';
 
 interface AreaActionsProps {
   area: Area;
@@ -58,7 +59,13 @@ function RescheduleDialog({ area }: { area: Area }) {
         }
         startTransition(async () => {
             try {
-                await updateArea(area.id, { nextInspectionDate: date.toISOString().split('T')[0] });
+                const payload = { nextInspectionDate: date.toISOString().split('T')[0] };
+                await updateArea(area.id, payload);
+                await notifyWebhook({
+                  event: 'area_rescheduled',
+                  areaId: area.id,
+                  ...payload
+                });
                 toast({ title: 'Reagendamento', description: 'Vistoria reagendada com sucesso.' });
                 setOpen(false);
                 router.refresh();
@@ -117,6 +124,10 @@ export function AreaActions({ area }: AreaActionsProps) {
     startTransition(async () => {
       try {
         await deleteArea(area.id);
+        await notifyWebhook({
+          event: 'area_deleted',
+          areaId: area.id
+        });
         toast({
             title: 'Exclusão de Área',
             description: 'Área excluída com sucesso.',
