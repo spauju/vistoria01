@@ -5,16 +5,9 @@ const MAKE_WEBHOOK_URL = 'https://hook.eu2.make.com/w5m2kk57rrs9ixdpvg65fb5b32k1
 // A chave de API para o seu cenário Make.com (se o seu webhook estiver protegido)
 const MAKE_API_KEY = process.env.MAKE_API_KEY; // Opcional, se o Make.com exigir.
 
-// A chave de API para proteger este endpoint
-const INTERNAL_API_KEY = process.env.WEBHOOK_API_KEY;
-
 export async function POST(request: Request) {
   try {
-     // A partir de agora, este endpoint é público para a sua própria app,
-     // mas seria ideal adicionar um mecanismo de segurança para garantir
-     // que apenas utilizadores autenticados da sua app o podem chamar, se necessário.
-     // Por enquanto, vamos manter a lógica de proxy.
-
+     // Este endpoint é público para a própria app, atuando como um proxy seguro.
     const payload = await request.json();
 
     const headers: HeadersInit = {
