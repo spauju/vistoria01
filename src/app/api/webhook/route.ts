@@ -30,7 +30,13 @@ export async function POST(request: Request) {
         const responseData = await makeResponse.json();
         return NextResponse.json(responseData, { status: makeResponse.status });
     } catch (e) {
-        return new NextResponse(await makeResponse.text(), { status: makeResponse.status });
+        const textResponse = await makeResponse.text();
+        // Se o Make.com retornou um 200 OK com "Accepted", consideramos um sucesso.
+        if (makeResponse.status === 200 && textResponse.toLowerCase() === 'accepted') {
+             return NextResponse.json({ message: 'Accepted' }, { status: 200 });
+        }
+        // Caso contrário, retornamos o texto que recebemos.
+        return new NextResponse(textResponse, { status: makeResponse.status });
     }
 
   } catch (error: any) {
