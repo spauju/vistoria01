@@ -90,6 +90,7 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
 
         setOpen(false);
         form.reset();
+        window.dispatchEvent(new Event('refresh-data')); // Dispatch event
         router.refresh();
       } catch (error: any) {
         toast({

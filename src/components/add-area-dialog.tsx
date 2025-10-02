@@ -114,6 +114,7 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
 
         setOpen(false);
         form.reset();
+        window.dispatchEvent(new Event('refresh-data')); // Dispatch event
         router.refresh();
 
       } catch (error: any) {

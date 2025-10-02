@@ -68,6 +68,7 @@ function RescheduleDialog({ area }: { area: Area }) {
                 });
                 toast({ title: 'Reagendamento', description: 'Vistoria reagendada com sucesso.' });
                 setOpen(false);
+                window.dispatchEvent(new Event('refresh-data')); // Dispatch event
                 router.refresh();
             } catch(error: any) {
                 toast({ title: 'Erro', description: error.message || 'Falha ao reagendar vistoria.', variant: 'destructive'});
@@ -133,6 +134,7 @@ export function AreaActions({ area }: AreaActionsProps) {
             description: 'Área excluída com sucesso.',
         });
         setAlertOpen(false);
+        window.dispatchEvent(new Event('refresh-data')); // Dispatch event
         router.refresh();
       } catch (error: any) {
          toast({

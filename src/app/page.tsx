@@ -7,21 +7,38 @@ import { AreaList } from '@/components/area-list';
 import type { AreaWithLastInspection } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const [areas, setAreas] = useState<AreaWithLastInspection[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
+  const router = useRouter(); // router.refresh will be used
+
+  const fetchAreas = () => {
+    setLoading(true);
+    getAreas().then(data => {
+      setAreas(data);
+      setLoading(false);
+    });
+  };
 
   useEffect(() => {
     if (user) {
-      setLoading(true);
-      getAreas().then(data => {
-        setAreas(data);
-        setLoading(false);
-      });
+      fetchAreas();
     }
   }, [user]);
+
+  // This effect listens for a custom event to refresh data
+  useEffect(() => {
+    const handleDataRefresh = () => {
+      fetchAreas();
+    };
+    window.addEventListener('refresh-data', handleDataRefresh);
+    return () => {
+      window.removeEventListener('refresh-data', handleDataRefresh);
+    };
+  }, []);
 
   if (authLoading || !user) {
     return (
@@ -62,13 +79,13 @@ export default function Home() {
             <TabsTrigger value="completed">Concluídas</TabsTrigger>
           </TabsList>
           <TabsContent value="scheduled">
-            <AreaList areas={scheduled} />
+            <AreaList areas={scheduled} isLoading={loading} />
           </TabsContent>
           <TabsContent value="pending">
-            <AreaList areas={pending} />
+            <AreaList areas={pending} isLoading={loading} />
           </TabsContent>
           <TabsContent value="completed">
-            <AreaList areas={completed} />
+            <AreaList areas={completed} isLoading={loading} />
           </TabsContent>
         </Tabs>
       </main>
