@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, MoreHorizontal, Pencil, Trash2, CalendarPlus, Loader2 } from 'lucide-react';
 import { AddAreaDialog } from './add-area-dialog';
 import type { Area } from '@/lib/types';
-import { deleteAreaAction, updateAreaAction } from '@/app/actions';
+import { deleteArea, updateArea } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
@@ -58,7 +58,7 @@ function RescheduleDialog({ area }: { area: Area }) {
         }
         startTransition(async () => {
             try {
-                await updateAreaAction(area.id, { nextInspectionDate: date.toISOString().split('T')[0] });
+                await updateArea(area.id, { nextInspectionDate: date.toISOString().split('T')[0] });
                 toast({ title: 'Reagendamento', description: 'Vistoria reagendada com sucesso.' });
                 setOpen(false);
                 router.refresh();
@@ -116,7 +116,7 @@ export function AreaActions({ area }: AreaActionsProps) {
   const handleDelete = () => {
     startTransition(async () => {
       try {
-        await deleteAreaAction(area.id);
+        await deleteArea(area.id);
         toast({
             title: 'Exclusão de Área',
             description: 'Área excluída com sucesso.',

@@ -28,12 +28,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, add } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { addAreaAction, updateAreaAction } from '@/app/actions';
+import { addArea, updateArea } from '@/lib/db';
 import type { Area } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-
 
 const areaSchema = z.object({
   sectorLote: z.string().min(1, 'Setor/Lote é obrigatório.'),
@@ -74,16 +73,24 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   const onSubmit = (data: AreaFormValues) => {
     startTransition(async () => {
       try {
-        const payload = {
-          sectorLote: data.sectorLote,
-          plots: data.plots,
-          plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
-        };
-
         if (area) {
-          await updateAreaAction(area.id, payload);
+          const payload = {
+            sectorLote: data.sectorLote,
+            plots: data.plots,
+            plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
+          };
+          await updateArea(area.id, payload);
         } else {
-          await addAreaAction(payload);
+          const nextInspectionDate = add(data.plantingDate, { days: 90 }).toISOString().split('T')[0];
+          const newAreaData: Omit<Area, 'id'> = {
+              sectorLote: data.sectorLote,
+              plots: data.plots,
+              plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
+              nextInspectionDate,
+              status: 'Agendada' as const,
+              inspections: [],
+          };
+          await addArea(newAreaData);
         }
 
         toast({

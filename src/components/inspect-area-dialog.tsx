@@ -27,8 +27,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, WandSparkles } from 'lucide-react';
-import { getAISuggestionsAction, addInspectionAction } from '@/app/actions';
-import type { Area } from '@/lib/types';
+import { addInspection } from '@/lib/db';
+import { suggestInspectionObservation } from '@/ai/flows/suggest-inspection-observation';
+import type { Area, SuggestInspectionObservationInput } from '@/lib/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
@@ -65,7 +66,7 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
   const onSubmit = (data: InspectionFormValues) => {
     startTransition(async () => {
       try {
-        await addInspectionAction(area.id, {
+        await addInspection(area.id, {
           heightCm: data.heightCm,
           observations: data.observations || '',
           atSize: data.atSize,
@@ -98,17 +99,33 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
     }
     
     startAiTransition(async () => {
-      const result = await getAISuggestionsAction(heightCm, area.id);
-      if(result?.suggestions) {
-        const suggestionsText = result.suggestions.join('\n');
-        const currentObs = form.getValues('observations');
-        form.setValue('observations', `${currentObs ? currentObs + '\n' : ''}${suggestionsText}`);
-      } else {
-        toast({
-          title: 'Sugestão IA',
-          description: 'Não foi possível obter sugestões no momento.',
-          variant: 'destructive',
-        });
+      try {
+        const input: SuggestInspectionObservationInput = {
+          heightCm,
+          inspectionDate: new Date().toISOString().split('T')[0],
+          sector: area.sectorLote.split('/')[0],
+          lote: area.sectorLote.split('/')[1],
+          talhoes: area.plots,
+        };
+        const result = await suggestInspectionObservation(input);
+        if(result?.suggestions) {
+          const suggestionsText = result.suggestions.join('\n');
+          const currentObs = form.getValues('observations');
+          form.setValue('observations', `${currentObs ? currentObs + '\n' : ''}${suggestionsText}`);
+        } else {
+          toast({
+            title: 'Sugestão IA',
+            description: 'Não foi possível obter sugestões no momento.',
+            variant: 'destructive',
+          });
+        }
+      } catch(e) {
+          console.error(e);
+          toast({
+            title: 'Sugestão IA',
+            description: 'Não foi possível obter sugestões no momento.',
+            variant: 'destructive',
+          });
       }
     });
   }

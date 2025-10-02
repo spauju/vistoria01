@@ -34,3 +34,12 @@ export type User = {
     role: UserRole;
     name: string;
 }
+
+// AI Flow Types
+export type SuggestInspectionObservationInput = {
+  heightCm: number;
+  inspectionDate: string;
+  sector: string;
+  lote: string;
+  talhoes: string;
+};
