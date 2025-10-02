@@ -65,15 +65,15 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
 
   const onSubmit = (data: InspectionFormValues) => {
     startTransition(async () => {
-      try {
-        const inspectionPayload = {
-          heightCm: data.heightCm,
-          observations: data.observations || '',
-          atSize: data.atSize,
-          date: new Date().toISOString().split('T')[0],
-        };
-        await inspectAreaAction(area.id, inspectionPayload);
+      const inspectionPayload = {
+        heightCm: data.heightCm,
+        observations: data.observations || '',
+        atSize: data.atSize,
+        date: new Date().toISOString().split('T')[0],
+      };
+      const result = await inspectAreaAction(area.id, inspectionPayload);
 
+      if (result.success) {
         toast({
           title: 'Vistoria de Área',
           description: 'Vistoria adicionada com sucesso.',
@@ -81,12 +81,12 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
 
         setOpen(false);
         form.reset();
-        window.dispatchEvent(new Event('refresh-data')); // Dispatch event
+        window.dispatchEvent(new Event('refresh-data'));
         router.refresh();
-      } catch (error: any) {
+      } else {
         toast({
           title: 'Erro',
-          description: error.message || 'Falha ao adicionar vistoria.',
+          description: result.error || 'Falha ao adicionar vistoria.',
           variant: 'destructive',
         });
       }

@@ -57,15 +57,16 @@ function RescheduleDialog({ area }: { area: Area }) {
             return;
         }
         startTransition(async () => {
-            try {
-                const newDate = date.toISOString().split('T')[0];
-                await rescheduleAreaAction(area.id, newDate);
+            const newDate = date.toISOString().split('T')[0];
+            const result = await rescheduleAreaAction(area.id, newDate);
+            
+            if (result.success) {
                 toast({ title: 'Reagendamento', description: 'Vistoria reagendada com sucesso.' });
                 setOpen(false);
-                window.dispatchEvent(new Event('refresh-data')); // Dispatch event
+                window.dispatchEvent(new Event('refresh-data'));
                 router.refresh();
-            } catch(error: any) {
-                toast({ title: 'Erro', description: error.message || 'Falha ao reagendar vistoria.', variant: 'destructive'});
+            } else {
+                toast({ title: 'Erro', description: result.error || 'Falha ao reagendar vistoria.', variant: 'destructive'});
             }
         });
     }
@@ -117,19 +118,20 @@ export function AreaActions({ area }: AreaActionsProps) {
 
   const handleDelete = () => {
     startTransition(async () => {
-      try {
-        await deleteAreaAction(area.id);
+      const result = await deleteAreaAction(area.id);
+      
+      if (result.success) {
         toast({
             title: 'Exclusão de Área',
             description: 'Área excluída com sucesso.',
         });
         setAlertOpen(false);
-        window.dispatchEvent(new Event('refresh-data')); // Dispatch event
+        window.dispatchEvent(new Event('refresh-data'));
         router.refresh();
-      } catch (error: any) {
+      } else {
          toast({
             title: 'Erro de Exclusão',
-            description: error.message || 'Falha ao excluir área. Verifique as regras de segurança.',
+            description: result.error || 'Falha ao excluir área. Verifique as regras de segurança.',
             variant: 'destructive',
         });
       }

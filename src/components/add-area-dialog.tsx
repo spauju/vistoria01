@@ -72,23 +72,24 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
 
   const onSubmit = (data: AreaFormValues) => {
     startTransition(async () => {
-      try {
-        if (area) {
-          const payload = {
+      let result;
+      if (area) {
+        const payload = {
+          sectorLote: data.sectorLote,
+          plots: data.plots,
+          plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
+        };
+        result = await updateAreaAction(area.id, payload);
+      } else {
+        const newAreaData = {
             sectorLote: data.sectorLote,
             plots: data.plots,
             plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
-          };
-          await updateAreaAction(area.id, payload);
-        } else {
-          const newAreaData = {
-              sectorLote: data.sectorLote,
-              plots: data.plots,
-              plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
-          };
-          await addAreaAction(newAreaData);
-        }
+        };
+        result = await addAreaAction(newAreaData);
+      }
 
+      if (result.success) {
         toast({
           title: area ? 'Atualização de Área' : 'Cadastro de Área',
           description: `Área ${area ? 'atualizada' : 'cadastrada'} com sucesso.`,
@@ -96,13 +97,12 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
 
         setOpen(false);
         form.reset();
-        window.dispatchEvent(new Event('refresh-data')); // Dispatch event
+        window.dispatchEvent(new Event('refresh-data'));
         router.refresh();
-
-      } catch (error: any) {
+      } else {
         toast({
           title: 'Erro',
-          description: error.message || `Falha ao ${area ? 'atualizar' : 'cadastrar'} área. Verifique as regras de segurança do Firestore.`,
+          description: result.error || `Falha ao ${area ? 'atualizar' : 'cadastrar'} área.`,
           variant: 'destructive',
         });
       }
