@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { z } from 'zod';
 import { 
     getAreaById as dbGetAreaById,
     addArea as dbAddArea,
@@ -10,7 +9,8 @@ import {
     addInspection as dbAddInspection
 } from '@/lib/db';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
-import type { Area } from '@/lib/types';
+import type { Area, Inspection } from '@/lib/types';
+import { add } from 'date-fns';
 
 
 const WEBHOOK_URL = 'https://hook.eu2.make.com/3gux6vcanm0m65m65qa5jd89nqmj348p8f';
@@ -32,7 +32,14 @@ async function notifyWebhook(data: any) {
 }
 
 export async function addAreaAction(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status' | 'inspections'>) {
-    const newArea = await dbAddArea(data);
+    const nextInspectionDate = add(new Date(data.plantingDate), { days: 90 }).toISOString().split('T')[0];
+    const newAreaData: Omit<Area, 'id'> = {
+        ...data,
+        nextInspectionDate,
+        status: 'Agendada' as const,
+        inspections: [],
+    };
+    const newArea = await dbAddArea(newAreaData);
     await notifyWebhook({ event: 'area_created', area: newArea });
     revalidatePath('/');
     return newArea;
@@ -40,17 +47,19 @@ export async function addAreaAction(data: Omit<Area, 'id' | 'nextInspectionDate'
 
 export async function updateAreaAction(id: string, data: Partial<Omit<Area, 'id'>>) {
     await dbUpdateArea(id, data);
+    await notifyWebhook({ event: 'area_updated', areaId: id, changes: data });
     revalidatePath('/');
     revalidatePath(`/reports`);
 }
 
 export async function deleteAreaAction(id: string) {
     await dbDeleteArea(id);
+    await notifyWebhook({ event: 'area_deleted', areaId: id });
     revalidatePath('/');
     revalidatePath(`/reports`);
 }
 
-export async function addInspectionAction(areaId: string, inspectionData: Omit<import('@/lib/types').Inspection, 'id' | 'areaId'>) {
+export async function addInspectionAction(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>) {
     const result = await dbAddInspection(areaId, inspectionData);
     await notifyWebhook({
         event: 'status_updated',

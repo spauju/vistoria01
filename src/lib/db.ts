@@ -83,22 +83,11 @@ export async function getAreaById(id: string): Promise<AreaWithLastInspection | 
     } as AreaWithLastInspection;
 }
 
-export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status' | 'inspections'>): Promise<Area> {
-    const nextInspectionDate = add(new Date(data.plantingDate), { days: 90 }).toISOString().split('T')[0];
-
-    const newArea: Omit<Area, 'id'> = {
-        ...data,
-        nextInspectionDate,
-        status: 'Agendada' as const,
-        inspections: [],
-    };
-
-    const docRef = await addDoc(collection(db, AREAS_COLLECTION), newArea);
-    
-    const finalArea = { ...newArea, id: docRef.id };
-    
-    return finalArea;
+export async function addArea(newAreaData: Omit<Area, 'id'>): Promise<Area> {
+    const docRef = await addDoc(collection(db, AREAS_COLLECTION), newAreaData);
+    return { ...newAreaData, id: docRef.id };
 }
+
 
 export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<void> {
     const docRef = doc(db, AREAS_COLLECTION, id);
