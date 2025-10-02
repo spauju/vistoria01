@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const WEBHOOK_URL = 'https://hook.eu2.make.com/3gux6vcanm0m65m65qa5jd89nqmj348p8f';
+const WEBHOOK_URL = 'https://hook.eu2.make.com/w5m2kk57rrs9ixdpvg65fb5b32k1ig';
 const API_KEY = process.env.WEBHOOK_API_KEY;
 
 export async function POST(request: Request) {
