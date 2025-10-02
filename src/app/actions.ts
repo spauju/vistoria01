@@ -3,39 +3,67 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { 
-    getAreaById
+    getAreaById as dbGetAreaById,
+    addArea as dbAddArea,
+    updateArea as dbUpdateArea,
+    deleteArea as dbDeleteArea,
+    addInspection as dbAddInspection
 } from '@/lib/db';
 import { suggestInspectionObservation, type SuggestInspectionObservationInput } from '@/ai/flows/suggest-inspection-observation';
+import type { Area } from '@/lib/types';
 
-// Server actions for mutations (add, update, delete) have been removed.
-// The logic has been moved to the client-side components to directly use the Firebase client SDK.
-// This resolves the PERMISSION_DENIED errors by ensuring the authenticated user's context is available.
 
 const WEBHOOK_URL = 'https://hook.eu2.make.com/3gux6vcanm0m65m65qa5jd89nqmj348p8f';
 
-export async function notifyWebhookAction(data: any) {
+async function notifyWebhook(data: any) {
+  if (!WEBHOOK_URL) return;
   try {
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    
-    // Check if the request was successful
     if (!response.ok) {
-        // Log the error on the server without throwing to the client
-        console.error('Webhook notification failed with status:', response.status, await response.text());
+      console.error('Webhook notification failed with status:', response.status, await response.text());
     }
   } catch (error) {
-    console.error('Failed to notify webhook via server action:', error);
-    // Not re-throwing error to the client, as this is a background task.
+    console.error('Failed to notify webhook:', error);
   }
 }
 
+export async function addAreaAction(data: Omit<Area, 'id' | 'nextInspectionDate' | 'status' | 'inspections'>) {
+    const newArea = await dbAddArea(data);
+    await notifyWebhook({ event: 'area_created', area: newArea });
+    revalidatePath('/');
+    return newArea;
+}
+
+export async function updateAreaAction(id: string, data: Partial<Omit<Area, 'id'>>) {
+    await dbUpdateArea(id, data);
+    revalidatePath('/');
+    revalidatePath(`/reports`);
+}
+
+export async function deleteAreaAction(id: string) {
+    await dbDeleteArea(id);
+    revalidatePath('/');
+    revalidatePath(`/reports`);
+}
+
+export async function addInspectionAction(areaId: string, inspectionData: Omit<import('@/lib/types').Inspection, 'id' | 'areaId'>) {
+    const result = await dbAddInspection(areaId, inspectionData);
+    await notifyWebhook({
+        event: 'status_updated',
+        areaId: areaId,
+        newStatus: result.newStatus,
+    });
+    revalidatePath('/');
+    return result;
+}
+
+
 export async function getAISuggestionsAction(heightCm: number, areaId: string) {
-    const area = await getAreaById(areaId);
+    const area = await dbGetAreaById(areaId);
     if (!area) {
         return { suggestions: [] };
     }

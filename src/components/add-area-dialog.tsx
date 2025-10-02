@@ -30,10 +30,10 @@ import { CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { addArea, updateArea } from '@/lib/db';
+import { addAreaAction, updateAreaAction } from '@/app/actions';
 import type { Area } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import { notifyWebhookAction } from '@/app/actions';
+
 
 const areaSchema = z.object({
   sectorLote: z.string().min(1, 'Setor/Lote é obrigatório.'),
@@ -74,23 +74,16 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
   const onSubmit = (data: AreaFormValues) => {
     startTransition(async () => {
       try {
+        const payload = {
+          sectorLote: data.sectorLote,
+          plots: data.plots,
+          plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
+        };
+
         if (area) {
-          await updateArea(area.id, {
-            sectorLote: data.sectorLote,
-            plots: data.plots,
-            plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
-          });
+          await updateAreaAction(area.id, payload);
         } else {
-          const result = await addArea({
-            sectorLote: data.sectorLote,
-            plots: data.plots,
-            plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
-          });
-          // Notify webhook in the background
-          notifyWebhookAction({
-            event: 'area_created',
-            area: result,
-          });
+          await addAreaAction(payload);
         }
 
         toast({
@@ -100,8 +93,7 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
 
         setOpen(false);
         form.reset();
-        // This is a client-side trick to force a refresh of server components.
-        router.refresh(); 
+        router.refresh();
 
       } catch (error: any) {
         toast({
