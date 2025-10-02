@@ -7,7 +7,7 @@ const MAKE_API_KEY = process.env.MAKE_API_KEY; // Opcional, se o Make.com exigir
 
 export async function POST(request: Request) {
   try {
-     // Este endpoint é público para a própria app, atuando como um proxy seguro.
+    // Este endpoint é público para a própria app, atuando como um proxy seguro.
     const payload = await request.json();
 
     const headers: HeadersInit = {
@@ -23,21 +23,28 @@ export async function POST(request: Request) {
     const makeResponse = await fetch(MAKE_WEBHOOK_URL, {
       method: 'POST',
       headers: headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload), // Alterado de volta para stringify para garantir consistência
     });
 
     if (!makeResponse.ok) {
       const errorBody = await makeResponse.text();
       console.error('Failed to forward to Make.com webhook:', makeResponse.status, errorBody);
-      return NextResponse.json(
-        { message: 'Failed to forward to webhook', error: errorBody },
-        { status: makeResponse.status }
-      );
+      // Retorna o status e a mensagem de erro do Make.com para uma depuração mais fácil
+      return new NextResponse(JSON.stringify({ message: 'Failed to forward to webhook', error: errorBody }), {
+        status: makeResponse.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Retorna a resposta do Make.com para o nosso cliente
-    const responseData = await makeResponse.json();
-    return NextResponse.json(responseData, { status: makeResponse.status });
+    try {
+        const responseData = await makeResponse.json();
+        return NextResponse.json(responseData, { status: makeResponse.status });
+    } catch (e) {
+        // Se o Make.com responder com "Accepted" (texto simples), por exemplo
+        return new NextResponse(await makeResponse.text(), { status: makeResponse.status });
+    }
+
 
   } catch (error: any) {
     console.error('Error in webhook handler:', error);
