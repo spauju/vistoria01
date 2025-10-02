@@ -33,7 +33,6 @@ import { MoreHorizontal, Pencil, Trash2, CalendarPlus, Loader2 } from 'lucide-re
 import { AddAreaDialog } from './add-area-dialog';
 import type { Area } from '@/lib/types';
 import { deleteArea, updateArea } from '@/lib/db';
-import { notifyWebhook } from '@/lib/webhook';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
@@ -62,11 +61,6 @@ function RescheduleDialog({ area }: { area: Area }) {
             try {
                 const payload = { nextInspectionDate: newDate };
                 await updateArea(area.id, payload);
-                await notifyWebhook({
-                    event: 'area_rescheduled',
-                    areaId: area.id,
-                    ...payload
-                });
                 toast({ title: 'Reagendamento', description: 'Vistoria reagendada com sucesso.' });
                 setOpen(false);
                 window.dispatchEvent(new Event('refresh-data'));
@@ -126,10 +120,6 @@ export function AreaActions({ area }: AreaActionsProps) {
     startTransition(async () => {
       try {
         await deleteArea(area.id);
-        await notifyWebhook({
-            event: 'area_deleted',
-            areaId: area.id,
-        });
         toast({
             title: 'Exclusão de Área',
             description: 'Área excluída com sucesso.',

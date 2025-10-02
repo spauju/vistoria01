@@ -28,7 +28,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, WandSparkles } from 'lucide-react';
 import { addInspection } from '@/lib/db';
-import { notifyWebhook } from '@/lib/webhook';
 import { suggestInspectionObservation } from '@/ai/flows/suggest-inspection-observation';
 import type { Area, SuggestInspectionObservationInput, Inspection } from '@/lib/types';
 import { format } from 'date-fns';
@@ -74,15 +73,7 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
           date: new Date().toISOString().split('T')[0],
         };
         
-        const { newStatus, newNextInspectionDate } = await addInspection(area.id, inspectionPayload);
-        
-        await notifyWebhook({
-            event: 'area_inspected',
-            areaId: area.id,
-            inspection: inspectionPayload,
-            newStatus,
-            newNextInspectionDate,
-        });
+        await addInspection(area.id, inspectionPayload);
 
         toast({
           title: 'Vistoria de Área',

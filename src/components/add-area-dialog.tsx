@@ -31,7 +31,6 @@ import { cn } from '@/lib/utils';
 import { format, add } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { addArea, updateArea } from '@/lib/db';
-import { notifyWebhook } from '@/lib/webhook';
 import type { Area } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
@@ -81,11 +80,6 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
             plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
           };
           await updateArea(area.id, payload);
-          await notifyWebhook({
-            event: 'area_updated',
-            areaId: area.id,
-            updates: payload,
-          });
           toast({
             title: 'Atualização de Área',
             description: 'Área atualizada com sucesso.',
@@ -100,11 +94,7 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
               status: 'Agendada' as const,
               inspections: [],
           };
-          const createdArea = await addArea(newAreaData);
-          await notifyWebhook({
-            event: 'area_created',
-            area: createdArea,
-          });
+          await addArea(newAreaData);
           toast({
             title: 'Cadastro de Área',
             description: 'Área cadastrada com sucesso.',
