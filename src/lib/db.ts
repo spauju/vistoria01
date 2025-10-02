@@ -5,6 +5,25 @@ import { add } from 'date-fns';
 
 const AREAS_COLLECTION = 'cana_data';
 const USERS_COLLECTION = 'users';
+const WEBHOOK_URL = 'https://hook.eu2.make.com/3gux6vcanm0m65m65qa5jd89nqmj348p8f';
+
+// --- Webhook Function ---
+
+async function notifyWebhook(data: any) {
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+  } catch (error) {
+    console.error('Failed to notify webhook:', error);
+    // We don't throw an error here because the primary operation (DB write) should not fail if the webhook fails.
+  }
+}
+
 
 // --- User Functions ---
 
@@ -32,27 +51,16 @@ export async function dbCreateUser(uid: string, email: string, name: string, rol
     return { id: uid, ...newUser};
 }
 
-export async function ensureUserExists(uid: string, email: string | null, name: string | null): Promise<User> {
+export async function ensureUserExists(uid: string, email: string | null, name: string | null): Promise<User | null> {
     const existingUser = await getUserById(uid);
     if (existingUser) {
-        const updates: Partial<User> = {};
-        if (!existingUser.name && name) updates.name = name;
-        if (!existingUser.email && email) updates.email = email;
-
-        if (Object.keys(updates).length > 0) {
-            const userDocRef = doc(db, USERS_COLLECTION, uid);
-            await updateDoc(userDocRef, updates);
-            return { ...existingUser, ...updates };
-        }
         return existingUser;
     }
     
-    const userEmail = email || 'no-email@example.com';
-    const userName = name || userEmail.split('@')[0];
-    const allUsers = await getDocs(query(collection(db, USERS_COLLECTION)));
-    const finalRole = allUsers.empty ? 'admin' : 'technician';
-
-    return await dbCreateUser(uid, userEmail, userName, finalRole);
+    // If the user does not exist in Firestore, return null.
+    // The creation of users should be handled by an admin.
+    console.warn(`User with UID ${uid} authenticated but does not exist in Firestore 'users' collection.`);
+    return null;
 }
 
 // --- Area and Inspection Functions ---
@@ -105,7 +113,16 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
     };
 
     const docRef = await addDoc(collection(db, AREAS_COLLECTION), newArea);
-    return { ...newArea, id: docRef.id };
+    
+    const finalArea = { ...newArea, id: docRef.id };
+
+    // Notify webhook about the new area
+    await notifyWebhook({
+      event: 'area_created',
+      area: finalArea,
+    });
+    
+    return finalArea;
 }
 
 export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<void> {
@@ -136,5 +153,12 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         status: newStatus,
         nextInspectionDate: newNextInspectionDate,
         inspections: arrayUnion(newInspection)
+    });
+
+    // Notify webhook about the status change
+    await notifyWebhook({
+      event: 'status_updated',
+      areaId: areaId,
+      newStatus: newStatus,
     });
 }
