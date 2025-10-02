@@ -33,6 +33,7 @@ import { ptBR } from 'date-fns/locale';
 import { addArea, updateArea } from '@/lib/db';
 import type { Area } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { notifyWebhookAction } from '@/app/actions';
 
 const areaSchema = z.object({
   sectorLote: z.string().min(1, 'Setor/Lote é obrigatório.'),
@@ -80,10 +81,15 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
             plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
           });
         } else {
-          await addArea({
+          const result = await addArea({
             sectorLote: data.sectorLote,
             plots: data.plots,
             plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
+          });
+          // Notify webhook in the background
+          notifyWebhookAction({
+            event: 'area_created',
+            area: result,
           });
         }
 

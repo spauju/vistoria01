@@ -11,6 +11,23 @@ import { suggestInspectionObservation, type SuggestInspectionObservationInput } 
 // The logic has been moved to the client-side components to directly use the Firebase client SDK.
 // This resolves the PERMISSION_DENIED errors by ensuring the authenticated user's context is available.
 
+const WEBHOOK_URL = 'https://hook.eu2.make.com/3gux6vcanm0m65m65qa5jd89nqmj348p8f';
+
+export async function notifyWebhookAction(data: any) {
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+  } catch (error) {
+    console.error('Failed to notify webhook via server action:', error);
+    // Not re-throwing error to the client, as this is a background task.
+  }
+}
+
 export async function getAISuggestionsAction(heightCm: number, areaId: string) {
     const area = await getAreaById(areaId);
     if (!area) {

@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, WandSparkles } from 'lucide-react';
-import { getAISuggestionsAction } from '@/app/actions';
+import { getAISuggestionsAction, notifyWebhookAction } from '@/app/actions';
 import { addInspection } from '@/lib/db';
 import type { Area } from '@/lib/types';
 import { format } from 'date-fns';
@@ -66,11 +66,18 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
   const onSubmit = (data: InspectionFormValues) => {
     startTransition(async () => {
       try {
-        await addInspection(area.id, {
+        const result = await addInspection(area.id, {
           heightCm: data.heightCm,
           observations: data.observations || '',
           atSize: data.atSize,
           date: new Date().toISOString().split('T')[0],
+        });
+
+        // Notify webhook in the background
+        notifyWebhookAction({
+          event: 'status_updated',
+          areaId: area.id,
+          newStatus: result.newStatus,
         });
 
         toast({

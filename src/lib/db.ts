@@ -5,25 +5,6 @@ import { add } from 'date-fns';
 
 const AREAS_COLLECTION = 'cana_data';
 const USERS_COLLECTION = 'users';
-const WEBHOOK_URL = 'https://hook.eu2.make.com/3gux6vcanm0m65m65qa5jd89nqmj348p8f';
-
-// --- Webhook Function ---
-
-async function notifyWebhook(data: any) {
-  try {
-    await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-  } catch (error) {
-    console.error('Failed to notify webhook:', error);
-    // We don't throw an error here because the primary operation (DB write) should not fail if the webhook fails.
-  }
-}
-
 
 // --- User Functions ---
 
@@ -115,12 +96,6 @@ export async function addArea(data: Omit<Area, 'id' | 'nextInspectionDate' | 'st
     const docRef = await addDoc(collection(db, AREAS_COLLECTION), newArea);
     
     const finalArea = { ...newArea, id: docRef.id };
-
-    // Notify webhook about the new area
-    await notifyWebhook({
-      event: 'area_created',
-      area: finalArea,
-    });
     
     return finalArea;
 }
@@ -134,7 +109,7 @@ export async function deleteArea(id: string): Promise<void> {
     await deleteDoc(doc(db, AREAS_COLLECTION, id));
 }
 
-export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<void> {
+export async function addInspection(areaId: string, inspectionData: Omit<Inspection, 'id' | 'areaId'>): Promise<{ newStatus: Area['status'] }> {
     const areaRef = doc(db, AREAS_COLLECTION, areaId);
 
     const newInspection: Omit<Inspection, 'areaId'> = {
@@ -155,10 +130,5 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         inspections: arrayUnion(newInspection)
     });
 
-    // Notify webhook about the status change
-    await notifyWebhook({
-      event: 'status_updated',
-      areaId: areaId,
-      newStatus: newStatus,
-    });
+    return { newStatus };
 }
