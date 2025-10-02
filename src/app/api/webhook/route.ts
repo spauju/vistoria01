@@ -1,23 +1,35 @@
 import { NextResponse } from 'next/server';
 
-const WEBHOOK_URL = 'https://hook.eu2.make.com/w5m2kk57rrs9ixdpvg65fb5b32k1ig';
-const API_KEY = process.env.WEBHOOK_API_KEY;
+// O URL do seu webhook Make.com
+const MAKE_WEBHOOK_URL = 'https://hook.eu2.make.com/w5m2kk57rrs9ixdpvg65fb5b32k1ig';
+// A chave de API para o seu cenário Make.com (se o seu webhook estiver protegido)
+const MAKE_API_KEY = process.env.MAKE_API_KEY; // Opcional, se o Make.com exigir.
+
+// A chave de API para proteger este endpoint
+const INTERNAL_API_KEY = process.env.WEBHOOK_API_KEY;
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!API_KEY || authHeader !== `Bearer ${API_KEY}`) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
+     // A partir de agora, este endpoint é público para a sua própria app,
+     // mas seria ideal adicionar um mecanismo de segurança para garantir
+     // que apenas utilizadores autenticados da sua app o podem chamar, se necessário.
+     // Por enquanto, vamos manter a lógica de proxy.
 
     const payload = await request.json();
 
-    // Forward the payload to the external webhook
-    const makeResponse = await fetch(WEBHOOK_URL, {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    // Adicione a chave de API para o Make.com, se existir.
+    if (MAKE_API_KEY) {
+      headers['Authorization'] = `Bearer ${MAKE_API_KEY}`;
+    }
+
+    // Reencaminha o payload para o webhook externo (Make.com)
+    const makeResponse = await fetch(MAKE_WEBHOOK_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
       body: JSON.stringify(payload),
     });
 
@@ -30,7 +42,10 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ message: 'Webhook forwarded successfully' }, { status: 200 });
+    // Retorna a resposta do Make.com para o nosso cliente
+    const responseData = await makeResponse.json();
+    return NextResponse.json(responseData, { status: makeResponse.status });
+
   } catch (error: any) {
     console.error('Error in webhook handler:', error);
     return NextResponse.json(
