@@ -28,12 +28,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, add } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { addArea, updateArea } from '@/lib/db';
+import { addAreaAction, updateAreaAction } from '@/app/actions';
 import type { Area } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import { notifyWebhook } from '@/lib/webhook';
 
 const areaSchema = z.object({
   sectorLote: z.string().min(1, 'Setor/Lote é obrigatório.'),
@@ -80,31 +79,14 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
             plots: data.plots,
             plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
           };
-          await updateArea(area.id, payload);
-          // Notify webhook about update
-          await notifyWebhook({
-            event: 'area_updated',
-            areaId: area.id,
-            ...payload,
-          });
-
+          await updateAreaAction(area.id, payload);
         } else {
-          const nextInspectionDate = add(data.plantingDate, { days: 90 }).toISOString().split('T')[0];
-          const newAreaData: Omit<Area, 'id'> = {
+          const newAreaData = {
               sectorLote: data.sectorLote,
               plots: data.plots,
               plantingDate: format(data.plantingDate, 'yyyy-MM-dd'),
-              nextInspectionDate,
-              status: 'Agendada' as const,
-              inspections: [],
           };
-          const createdArea = await addArea(newAreaData);
-          // Notify webhook about creation
-          await notifyWebhook({
-            event: 'area_created',
-            areaId: createdArea.id,
-            ...createdArea,
-          });
+          await addAreaAction(newAreaData);
         }
 
         toast({

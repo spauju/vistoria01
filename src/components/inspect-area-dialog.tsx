@@ -27,13 +27,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, WandSparkles } from 'lucide-react';
-import { addInspection } from '@/lib/db';
+import { inspectAreaAction } from '@/app/actions';
 import { suggestInspectionObservation } from '@/ai/flows/suggest-inspection-observation';
 import type { Area, SuggestInspectionObservationInput } from '@/lib/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
-import { notifyWebhook } from '@/lib/webhook';
 
 const inspectionSchema = z.object({
   heightCm: z.coerce.number().min(1, "Altura é obrigatória."),
@@ -73,15 +72,7 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
           atSize: data.atSize,
           date: new Date().toISOString().split('T')[0],
         };
-        const { newStatus, newNextInspectionDate } = await addInspection(area.id, inspectionPayload);
-
-        await notifyWebhook({
-            event: 'area_inspected',
-            areaId: area.id,
-            inspection: inspectionPayload,
-            newStatus,
-            newNextInspectionDate,
-        });
+        await inspectAreaAction(area.id, inspectionPayload);
 
         toast({
           title: 'Vistoria de Área',

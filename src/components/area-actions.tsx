@@ -32,14 +32,13 @@ import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, MoreHorizontal, Pencil, Trash2, CalendarPlus, Loader2 } from 'lucide-react';
 import { AddAreaDialog } from './add-area-dialog';
 import type { Area } from '@/lib/types';
-import { deleteArea, updateArea } from '@/lib/db';
+import { deleteAreaAction, rescheduleAreaAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { notifyWebhook } from '@/lib/webhook';
 
 interface AreaActionsProps {
   area: Area;
@@ -59,13 +58,8 @@ function RescheduleDialog({ area }: { area: Area }) {
         }
         startTransition(async () => {
             try {
-                const payload = { nextInspectionDate: date.toISOString().split('T')[0] };
-                await updateArea(area.id, payload);
-                await notifyWebhook({
-                  event: 'area_rescheduled',
-                  areaId: area.id,
-                  ...payload
-                });
+                const newDate = date.toISOString().split('T')[0];
+                await rescheduleAreaAction(area.id, newDate);
                 toast({ title: 'Reagendamento', description: 'Vistoria reagendada com sucesso.' });
                 setOpen(false);
                 window.dispatchEvent(new Event('refresh-data')); // Dispatch event
@@ -124,11 +118,7 @@ export function AreaActions({ area }: AreaActionsProps) {
   const handleDelete = () => {
     startTransition(async () => {
       try {
-        await deleteArea(area.id);
-        await notifyWebhook({
-          event: 'area_deleted',
-          areaId: area.id
-        });
+        await deleteAreaAction(area.id);
         toast({
             title: 'Exclusão de Área',
             description: 'Área excluída com sucesso.',

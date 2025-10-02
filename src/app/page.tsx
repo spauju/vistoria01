@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getAreas } from '@/lib/data';
 import { Header } from '@/components/header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,23 +13,23 @@ export default function Home() {
   const [areas, setAreas] = useState<AreaWithLastInspection[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter(); // router.refresh will be used
+  const router = useRouter(); 
 
-  const fetchAreas = () => {
+  const fetchAreas = useCallback(() => {
+    if (!user) return;
     setLoading(true);
     getAreas().then(data => {
       setAreas(data);
       setLoading(false);
+    }).catch(() => {
+      setLoading(false);
     });
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchAreas();
-    }
   }, [user]);
 
-  // This effect listens for a custom event to refresh data
+  useEffect(() => {
+    fetchAreas();
+  }, [fetchAreas]);
+
   useEffect(() => {
     const handleDataRefresh = () => {
       fetchAreas();
@@ -38,7 +38,7 @@ export default function Home() {
     return () => {
       window.removeEventListener('refresh-data', handleDataRefresh);
     };
-  }, []);
+  }, [fetchAreas]);
 
   if (authLoading || !user) {
     return (
