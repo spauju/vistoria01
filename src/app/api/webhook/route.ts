@@ -18,26 +18,17 @@ export async function POST(request: Request) {
     if (!makeResponse.ok) {
       const errorBody = await makeResponse.text();
       console.error('Failed to forward to Make.com webhook:', makeResponse.status, errorBody);
+      // Retorna uma resposta de erro clara para o cliente
       return new NextResponse(JSON.stringify({ message: 'Failed to forward to webhook', error: errorBody }), {
-        status: makeResponse.status,
+        status: makeResponse.status, // Usa o mesmo status do erro original
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Tenta retornar a resposta do Make.com como JSON.
-    // Se falhar (ex: o Make.com respondeu com texto simples como "Accepted"), retorna o texto.
-    try {
-        const responseData = await makeResponse.json();
-        return NextResponse.json(responseData, { status: makeResponse.status });
-    } catch (e) {
-        const textResponse = await makeResponse.text();
-        // Se o Make.com retornou um 200 OK com "Accepted", consideramos um sucesso.
-        if (makeResponse.status === 200 && textResponse.toLowerCase() === 'accepted') {
-             return NextResponse.json({ message: 'Accepted' }, { status: 200 });
-        }
-        // Caso contrário, retornamos o texto que recebemos.
-        return new NextResponse(textResponse, { status: makeResponse.status });
-    }
+    // Se o Make.com respondeu com sucesso, retorne uma resposta de sucesso para o cliente.
+    // O Make.com geralmente responde com "Accepted" como texto simples.
+    const responseData = await makeResponse.text();
+    return NextResponse.json({ message: 'Webhook forwarded successfully', upstreamResponse: responseData }, { status: 200 });
 
   } catch (error: any) {
     console.error('Error in webhook handler:', error);
