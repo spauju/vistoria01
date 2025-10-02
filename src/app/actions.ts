@@ -15,13 +15,19 @@ const WEBHOOK_URL = 'https://hook.eu2.make.com/3gux6vcanm0m65m65qa5jd89nqmj348p8
 
 export async function notifyWebhookAction(data: any) {
   try {
-    await fetch(WEBHOOK_URL, {
+    const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
     });
+    
+    // Check if the request was successful
+    if (!response.ok) {
+        // Log the error on the server without throwing to the client
+        console.error('Webhook notification failed with status:', response.status, await response.text());
+    }
   } catch (error) {
     console.error('Failed to notify webhook via server action:', error);
     // Not re-throwing error to the client, as this is a background task.
