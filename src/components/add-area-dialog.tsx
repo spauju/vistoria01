@@ -106,12 +106,13 @@ export function AddAreaDialog({ children, area }: AddAreaDialogProps) {
         window.dispatchEvent(new Event('refresh-data'));
         router.refresh();
       } catch (error: any) {
-        console.error("Error submitting form: ", error);
-        toast({
-          title: 'Erro',
-          description: error.message || `Falha ao ${area ? 'atualizar' : 'cadastrar'} área. Verifique as permissões.`,
-          variant: 'destructive',
-        });
+        if (process.env.NODE_ENV !== 'development') {
+           toast({
+            title: 'Erro',
+            description: `Falha ao ${area ? 'atualizar' : 'cadastrar'} área.`,
+            variant: 'destructive',
+          });
+        }
       }
     });
   };

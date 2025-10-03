@@ -87,12 +87,13 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
         window.dispatchEvent(new Event('refresh-data'));
         router.refresh();
       } catch (error: any) {
-        console.error('Error submitting inspection:', error);
-        toast({
-          title: 'Erro',
-          description: error.message || 'Falha ao adicionar vistoria.',
-          variant: 'destructive',
-        });
+        if (process.env.NODE_ENV !== 'development') {
+            toast({
+            title: 'Erro',
+            description: 'Falha ao adicionar vistoria.',
+            variant: 'destructive',
+            });
+        }
       }
     });
   };

@@ -70,26 +70,29 @@ export default function SettingsPage() {
     defaultValues: { email: '' },
   });
 
+  const fetchSettings = () => {
+    setLoading(true);
+    getAppSettings().then(data => {
+        setSettings(data);
+    }).catch(error => {
+        // Errors are now handled by the global error listener
+        // We can optionally show a toast here if we want to inform the user
+        // but the main debugging info comes from the listener.
+        toast({ title: 'Erro', description: 'Não foi possível carregar as configurações.', variant: 'destructive' });
+    }).finally(() => {
+        setLoading(false);
+    });
+  };
+
   useEffect(() => {
     if (!authLoading) {
       if (!user || user.role !== 'admin') {
         router.push('/');
+      } else {
+        fetchSettings();
       }
     }
   }, [user, authLoading, router]);
-
-  useEffect(() => {
-    if (user?.role === 'admin') {
-      getAppSettings().then(data => {
-        setSettings(data);
-        setLoading(false);
-      });
-    }
-  }, [user]);
-
-  const fetchSettings = () => {
-    getAppSettings().then(setSettings);
-  };
 
   const handleAddEmail = (data: EmailFormValues) => {
     if (settings?.recipientEmails.includes(data.email)) {
@@ -104,7 +107,11 @@ export default function SettingsPage() {
         form.reset();
         fetchSettings();
       } catch (error) {
-        toast({ title: 'Erro', description: 'Não foi possível adicionar o email.', variant: 'destructive' });
+        // The global listener will throw in dev mode. 
+        // This toast is a fallback for production.
+        if (process.env.NODE_ENV !== 'development') {
+            toast({ title: 'Erro', description: 'Não foi possível adicionar o email.', variant: 'destructive' });
+        }
       }
     });
   };
@@ -116,12 +123,14 @@ export default function SettingsPage() {
         toast({ title: 'Sucesso', description: 'Email removido da lista de notificações.' });
         fetchSettings();
       } catch (error) {
-        toast({ title: 'Erro', description: 'Não foi possível remover o email.', variant: 'destructive' });
+         if (process.env.NODE_ENV !== 'development') {
+            toast({ title: 'Erro', description: 'Não foi possível remover o email.', variant: 'destructive' });
+        }
       }
     });
   }
 
-  if (authLoading || loading || !user || user.role !== 'admin' || !settings) {
+  if (authLoading || loading || !user || user.role !== 'admin') {
     return <SettingsSkeleton />;
   }
 
@@ -170,7 +179,7 @@ export default function SettingsPage() {
 
             <div className="space-y-2">
               <h4 className="font-medium">Destinatários Atuais</h4>
-              {settings.recipientEmails.length > 0 ? (
+              {settings && settings.recipientEmails.length > 0 ? (
                 <ul className="rounded-md border">
                   {settings.recipientEmails.map((email, index) => (
                     <li key={email} className={`flex items-center justify-between p-3 ${index < settings.recipientEmails.length - 1 ? 'border-b' : ''}`}>

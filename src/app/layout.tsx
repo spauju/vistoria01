@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { AuthProvider } from '@/hooks/use-auth';
+import { FirebaseErrorListener } from '@/components/firebase-error-listener';
 
 const ptSans = PT_Sans({
   subsets: ['latin'],
@@ -45,6 +46,7 @@ export default function RootLayout({
       <body className={cn('min-h-screen bg-background font-body antialiased', ptSans.className)}>
         <AuthProvider>
             {children}
+            <FirebaseErrorListener />
         </AuthProvider>
         <Toaster />
       </body>

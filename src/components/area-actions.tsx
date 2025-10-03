@@ -67,7 +67,9 @@ function RescheduleDialog({ area }: { area: Area }) {
                 window.dispatchEvent(new Event('refresh-data'));
                 router.refresh();
             } catch (error: any) {
-                toast({ title: 'Erro', description: error.message || 'Falha ao reagendar vistoria.', variant: 'destructive'});
+                if (process.env.NODE_ENV !== 'development') {
+                  toast({ title: 'Erro', description: 'Falha ao reagendar vistoria.', variant: 'destructive'});
+                }
             }
         });
     }
@@ -129,11 +131,13 @@ export function AreaActions({ area }: AreaActionsProps) {
         window.dispatchEvent(new Event('refresh-data'));
         router.refresh();
       } catch (error: any) {
-         toast({
-            title: 'Erro de Exclusão',
-            description: error.message || 'Falha ao excluir área. Verifique as regras de segurança.',
-            variant: 'destructive',
-        });
+         if (process.env.NODE_ENV !== 'development') {
+             toast({
+                title: 'Erro de Exclusão',
+                description: 'Falha ao excluir área.',
+                variant: 'destructive',
+            });
+         }
       }
     });
   };
