@@ -22,9 +22,12 @@ service cloud.firestore {
     match /settings/{docId} {
       allow read, write: if isUserAdmin();
     }
-
+    
+    // Allow any authenticated user to create documents in the mail collection.
+    // The Cloud Function will be responsible for processing them.
     match /mail/{docId} {
       allow create: if isUserAuthenticated();
     }
   }
 }
+    

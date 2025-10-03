@@ -132,13 +132,16 @@ export async function sendEmailNotification(payload: Omit<EmailPayload, 'to'>): 
             ...payload
         };
 
+        // This action will trigger the Cloud Function
         addDoc(collection(db, MAIL_COLLECTION), emailData).catch((serverError) => {
             const permissionError = new FirestorePermissionError({
                 path: `/${MAIL_COLLECTION}`,
                 operation: 'create',
                 requestResourceData: emailData,
             });
-            errorEmitter.emit('permission-error', permissionError);
+            // We don't want to show a permission error for the mail collection to the user.
+            // Just log it to the console.
+            console.error("Error writing to mail collection, do you have permission?", permissionError);
         });
     } catch (error) {
         // Errors from getAppSettings are already handled, but we catch here just in case.
@@ -291,6 +294,10 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         emailBody = `A cana na área <strong>${area.sectorLote} (${area.plots})</strong> ainda não atingiu o porte. Uma nova vistoria foi agendada para <strong>${formattedDate}</strong>.`;
     }
     
+    if (inspectionData.observations) {
+        emailBody += `<br><br><strong>Observações do técnico:</strong><br>${inspectionData.observations}`;
+    }
+    
     const updatePayload = {
         status: newStatus,
         nextInspectionDate: newNextInspectionDate,
@@ -315,3 +322,5 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         throw serverError;
     });
 }
+
+    
