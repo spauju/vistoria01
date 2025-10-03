@@ -18,5 +18,13 @@ service cloud.firestore {
       allow read, update: if isUserAuthenticated();
       allow create, delete: if isUserAdmin();
     }
+
+    match /settings/{docId} {
+      allow read, write: if isUserAdmin();
+    }
+
+    match /mail/{docId} {
+      allow create: if isUserAuthenticated();
+    }
   }
 }
