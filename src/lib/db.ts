@@ -111,17 +111,18 @@ export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): P
         const area = areaDoc.data() as Area;
         const formattedDate = format(new Date(data.nextInspectionDate), 'PPP', { locale: ptBR });
         
-        // Supondo que existe um email de técnico associado à área ou um email de admin para notificar.
-        // Usaremos um email de placeholder por agora.
-        const targetEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@canacontrol.com';
+        // O destinatário do email é configurado através da variável de ambiente.
+        const targetEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
-        await sendEmailNotification({
-            to: [targetEmail],
-            message: {
-                subject: `Vistoria Reagendada: Área ${area.sectorLote}`,
-                html: `A vistoria para a área <strong>${area.sectorLote} (${area.plots})</strong> foi reagendada para <strong>${formattedDate}</strong>.`
-            }
-        });
+        if (targetEmail) {
+            await sendEmailNotification({
+                to: [targetEmail],
+                message: {
+                    subject: `Vistoria Reagendada: Área ${area.sectorLote}`,
+                    html: `A vistoria para a área <strong>${area.sectorLote} (${area.plots})</strong> foi reagendada para <strong>${formattedDate}</strong>.`
+                }
+            });
+        }
     }
 }
 
@@ -145,7 +146,9 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
     let newNextInspectionDate: string;
     let emailSubject = '';
     let emailBody = '';
-    const targetEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@canacontrol.com';
+    
+    // O destinatário do email é configurado através da variável de ambiente.
+    const targetEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
 
     if (inspectionData.atSize) {
@@ -167,13 +170,15 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         inspections: arrayUnion(newInspection)
     });
 
-    await sendEmailNotification({
-        to: [targetEmail],
-        message: {
-            subject: emailSubject,
-            html: emailBody,
-        }
-    });
+    if (targetEmail) {
+        await sendEmailNotification({
+            to: [targetEmail],
+            message: {
+                subject: emailSubject,
+                html: emailBody,
+            }
+        });
+    }
 
     return { newStatus, newNextInspectionDate };
 }
