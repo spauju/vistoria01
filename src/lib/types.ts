@@ -44,11 +44,11 @@ export type SuggestInspectionObservationInput = {
   talhoes: string;
 };
 
-// Email Trigger Types - REMOVED
-// export type EmailPayload = {
-//     to: string;
-//     message: {
-//         subject: string;
-//         html: string;
-//     };
-// }
+// Email Trigger Types
+export type EmailPayload = {
+    to: string[];
+    message: {
+        subject: string;
+        html: string;
+    };
+}

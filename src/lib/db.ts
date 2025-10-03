@@ -1,11 +1,12 @@
 import { db } from './firebase';
 import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, setDoc, query, orderBy, arrayUnion } from 'firebase/firestore';
-import type { Area, Inspection, User, AreaWithLastInspection, UserRole } from '@/lib/types';
+import type { Area, Inspection, User, AreaWithLastInspection, UserRole, EmailPayload } from '@/lib/types';
 import { add, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const AREAS_COLLECTION = 'cana_data';
 const USERS_COLLECTION = 'users';
+const MAIL_COLLECTION = 'mail';
 
 // --- User Functions ---
 
@@ -44,6 +45,17 @@ export async function ensureUserExists(uid: string, email: string | null, name: 
     console.warn(`User with UID ${uid} authenticated but does not exist in Firestore 'users' collection.`);
     return null;
 }
+
+// --- Email Function ---
+export async function sendEmailNotification(payload: EmailPayload): Promise<void> {
+    try {
+        await addDoc(collection(db, MAIL_COLLECTION), payload);
+    } catch (error) {
+        console.error("Error sending email notification:", error);
+        // Não relançamos o erro para não quebrar a operação principal (ex: salvar vistoria)
+    }
+}
+
 
 // --- Area and Inspection Functions ---
 
@@ -93,6 +105,24 @@ export async function addArea(newAreaData: Omit<Area, 'id'>): Promise<Area> {
 export async function updateArea(id: string, data: Partial<Omit<Area, 'id'>>): Promise<void> {
     const docRef = doc(db, AREAS_COLLECTION, id);
     await updateDoc(docRef, data);
+
+    if (data.nextInspectionDate && data.status === 'Agendada') {
+        const areaDoc = await getDoc(docRef);
+        const area = areaDoc.data() as Area;
+        const formattedDate = format(new Date(data.nextInspectionDate), 'PPP', { locale: ptBR });
+        
+        // Supondo que existe um email de técnico associado à área ou um email de admin para notificar.
+        // Usaremos um email de placeholder por agora.
+        const targetEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@canacontrol.com';
+
+        await sendEmailNotification({
+            to: [targetEmail],
+            message: {
+                subject: `Vistoria Reagendada: Área ${area.sectorLote}`,
+                html: `A vistoria para a área <strong>${area.sectorLote} (${area.plots})</strong> foi reagendada para <strong>${formattedDate}</strong>.`
+            }
+        });
+    }
 }
 
 export async function deleteArea(id: string): Promise<void> {
@@ -113,19 +143,36 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
     
     let newStatus: Area['status'];
     let newNextInspectionDate: string;
+    let emailSubject = '';
+    let emailBody = '';
+    const targetEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@canacontrol.com';
+
 
     if (inspectionData.atSize) {
         newStatus = 'Concluída';
         newNextInspectionDate = area.nextInspectionDate; // Keep the date, but status is complete
+        emailSubject = `Vistoria Concluída: Área ${area.sectorLote}`;
+        emailBody = `A vistoria para a área <strong>${area.sectorLote} (${area.plots})</strong> foi concluída com sucesso. Altura registrada: ${inspectionData.heightCm} cm.`;
     } else {
         newStatus = 'Pendente';
         newNextInspectionDate = add(new Date(inspectionData.date), { days: 20 }).toISOString().split('T')[0];
+        const formattedDate = format(new Date(newNextInspectionDate), 'PPP', { locale: ptBR });
+        emailSubject = `Nova Vistoria Necessária: Área ${area.sectorLote}`;
+        emailBody = `A cana na área <strong>${area.sectorLote} (${area.plots})</strong> ainda não atingiu o porte. Uma nova vistoria foi agendada para <strong>${formattedDate}</strong>.`;
     }
     
     await updateDoc(areaRef, {
         status: newStatus,
         nextInspectionDate: newNextInspectionDate,
         inspections: arrayUnion(newInspection)
+    });
+
+    await sendEmailNotification({
+        to: [targetEmail],
+        message: {
+            subject: emailSubject,
+            html: emailBody,
+        }
     });
 
     return { newStatus, newNextInspectionDate };
