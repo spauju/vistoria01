@@ -31,8 +31,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Pencil, Trash2, CalendarPlus, Loader2 } from 'lucide-react';
 import { AddAreaDialog } from './add-area-dialog';
-import type { Area, User } from '@/lib/types';
-import { deleteArea, updateArea, sendEmailNotification } from '@/lib/db';
+import type { Area } from '@/lib/types';
+import { deleteArea, updateArea } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
@@ -50,7 +50,6 @@ function RescheduleDialog({ area }: { area: Area }) {
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const router = useRouter();
-    const { user } = useAuth();
 
     const handleReschedule = () => {
         if (!date) {
@@ -62,20 +61,6 @@ function RescheduleDialog({ area }: { area: Area }) {
             try {
                 const payload = { nextInspectionDate: newDate, status: 'Agendada' as const };
                 await updateArea(area.id, payload);
-
-                if (user?.email) {
-                    await sendEmailNotification({
-                        to: user.email,
-                        message: {
-                            subject: `Vistoria Reagendada: ${area.sectorLote}`,
-                            html: `
-                                <h1>Vistoria Reagendada</h1>
-                                <p>A vistoria para a área <strong>${area.sectorLote} (${area.plots})</strong> foi reagendada.</p>
-                                <p>Nova data: <strong>${format(date, 'PPP', { locale: ptBR })}</strong></p>
-                            `,
-                        }
-                    });
-                }
 
                 toast({ title: 'Reagendamento', description: 'Vistoria reagendada com sucesso.' });
                 setOpen(false);

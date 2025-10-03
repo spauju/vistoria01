@@ -79,7 +79,7 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
 
         toast({
           title: 'Vistoria de Área',
-          description: 'Vistoria adicionada com sucesso. Um e-mail de notificação será enviado.',
+          description: 'Vistoria adicionada com sucesso.',
         });
 
         setOpen(false);

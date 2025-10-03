@@ -1,18 +1,11 @@
 import { db } from './firebase';
 import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, setDoc, query, orderBy, arrayUnion } from 'firebase/firestore';
-import type { Area, Inspection, User, AreaWithLastInspection, UserRole, EmailPayload } from '@/lib/types';
+import type { Area, Inspection, User, AreaWithLastInspection, UserRole } from '@/lib/types';
 import { add, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const AREAS_COLLECTION = 'cana_data';
 const USERS_COLLECTION = 'users';
-const MAIL_COLLECTION = 'mail';
-
-// --- Email Function ---
-export async function sendEmailNotification(payload: EmailPayload): Promise<void> {
-    await addDoc(collection(db, MAIL_COLLECTION), payload);
-}
-
 
 // --- User Functions ---
 
@@ -93,10 +86,6 @@ export async function getAreaById(id: string): Promise<AreaWithLastInspection | 
 
 export async function addArea(newAreaData: Omit<Area, 'id'>): Promise<Area> {
     const docRef = await addDoc(collection(db, AREAS_COLLECTION), newAreaData);
-    
-    // Assuming there is a user to notify, which may not always be true.
-    // For now, no email on creation, only on inspection/reschedule.
-
     return { ...newAreaData, id: docRef.id };
 }
 
@@ -124,38 +113,13 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
     
     let newStatus: Area['status'];
     let newNextInspectionDate: string;
-    let subject: string;
-    let htmlBody: string;
 
     if (inspectionData.atSize) {
         newStatus = 'Concluída';
         newNextInspectionDate = area.nextInspectionDate; // Keep the date, but status is complete
-        subject = `Vistoria Concluída: ${area.sectorLote}`;
-        htmlBody = `
-            <h1>Vistoria Concluída com Sucesso</h1>
-            <p>A vistoria para a área <strong>${area.sectorLote} (${area.plots})</strong> foi marcada como concluída.</p>
-            <p><strong>Detalhes da Vistoria:</strong></p>
-            <ul>
-                <li>Data: ${format(new Date(inspectionData.date), 'PPP', { locale: ptBR })}</li>
-                <li>Altura: ${inspectionData.heightCm} cm</li>
-                <li>Observações: ${inspectionData.observations || 'Nenhuma'}</li>
-            </ul>
-        `;
     } else {
         newStatus = 'Pendente';
         newNextInspectionDate = add(new Date(inspectionData.date), { days: 20 }).toISOString().split('T')[0];
-        subject = `Nova Vistoria Necessária: ${area.sectorLote}`;
-        htmlBody = `
-            <h1>Nova Vistoria Agendada</h1>
-            <p>A cana na área <strong>${area.sectorLote} (${area.plots})</strong> ainda não atingiu o porte ideal.</p>
-            <p>Uma nova vistoria foi agendada automaticamente para <strong>${format(new Date(newNextInspectionDate), 'PPP', { locale: ptBR })}</strong>.</p>
-            <p><strong>Detalhes da Vistoria Atual:</strong></p>
-            <ul>
-                <li>Data: ${format(new Date(inspectionData.date), 'PPP', { locale: ptBR })}</li>
-                <li>Altura: ${inspectionData.heightCm} cm</li>
-                <li>Observações: ${inspectionData.observations || 'Nenhuma'}</li>
-            </ul>
-        `;
     }
     
     await updateDoc(areaRef, {
@@ -163,16 +127,6 @@ export async function addInspection(areaId: string, inspectionData: Omit<Inspect
         nextInspectionDate: newNextInspectionDate,
         inspections: arrayUnion(newInspection)
     });
-
-    if (user?.email) {
-        await sendEmailNotification({
-            to: user.email,
-            message: {
-                subject: subject,
-                html: htmlBody,
-            }
-        });
-    }
 
     return { newStatus, newNextInspectionDate };
 }
