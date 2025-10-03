@@ -43,3 +43,12 @@ export type SuggestInspectionObservationInput = {
   lote: string;
   talhoes: string;
 };
+
+// Email Trigger Types
+export type EmailPayload = {
+    to: string;
+    message: {
+        subject: string;
+        html: string;
+    };
+}

@@ -33,6 +33,7 @@ import type { Area, SuggestInspectionObservationInput, Inspection } from '@/lib/
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 
 const inspectionSchema = z.object({
   heightCm: z.coerce.number().min(1, "Altura é obrigatória."),
@@ -53,6 +54,7 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
   const [isAiLoading, startAiTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useAuth();
 
   const form = useForm<InspectionFormValues>({
     resolver: zodResolver(inspectionSchema),
@@ -73,11 +75,11 @@ export function InspectAreaDialog({ children, area }: InspectAreaDialogProps) {
           date: new Date().toISOString().split('T')[0],
         };
         
-        await addInspection(area.id, inspectionPayload);
+        await addInspection(area.id, inspectionPayload, user);
 
         toast({
           title: 'Vistoria de Área',
-          description: 'Vistoria adicionada com sucesso.',
+          description: 'Vistoria adicionada com sucesso. Um e-mail de notificação será enviado.',
         });
 
         setOpen(false);
