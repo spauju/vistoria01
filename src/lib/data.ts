@@ -8,6 +8,9 @@ import {
   getUserById,
   dbCreateUser,
   ensureUserExists,
+  getAppSettings,
+  addRecipientEmail,
+  removeRecipientEmail,
 } from './db';
 
 // This file is now a proxy to export functions from db.ts.
@@ -23,4 +26,7 @@ export {
   getUserById,
   dbCreateUser,
   ensureUserExists,
+  getAppSettings,
+  addRecipientEmail,
+  removeRecipientEmail,
 };
