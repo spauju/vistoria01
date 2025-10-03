@@ -52,3 +52,8 @@ export type EmailPayload = {
         html: string;
     };
 }
+
+// App Settings
+export type AppSettings = {
+    recipientEmails: string[];
+}
