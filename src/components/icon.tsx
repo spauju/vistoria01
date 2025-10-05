@@ -14,16 +14,20 @@ export function Icon(props: SVGProps<SVGSVGElement>) {
     >
       <defs>
         <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#8cbf40" />
+          <stop offset="0%" stopColor="#6EBE4A" />
           <stop offset="100%" stopColor="#3d8c40" />
         </linearGradient>
       </defs>
-      <path d="M12 22V8" stroke="url(#leafGradient)" />
-      <path d="M12 8c4-1 6-4 6-8" stroke="url(#leafGradient)" />
-      <path d="M10 14c-4 0-6-3-6-6" stroke="url(#leafGradient)" />
-      <path d="M14 14c4 0 6-3 6-6" stroke="url(#leafGradient)" />
-      <path d="M12 18c-4 0-6-3-6-6" stroke="url(#leafGradient)" />
-      <path d="M12 18c4 0 6-3 6-6" stroke="url(#leafGradient)" />
+      <path
+        d="M6 20 C 10 10, 14 6, 22 2 C 20 10, 16 14, 6 20 Z"
+        fill="url(#leafGradient)"
+        stroke="none"
+      />
+      <path
+        d="M9 17 C 12.5 11, 15.5 8, 20 4"
+        stroke="#D4E79E"
+        strokeWidth="0.8"
+      />
     </svg>
   );
 }
