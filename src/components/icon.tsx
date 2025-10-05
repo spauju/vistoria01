@@ -18,9 +18,12 @@ export function Icon(props: SVGProps<SVGSVGElement>) {
           <stop offset="100%" stopColor="#3d8c40" />
         </linearGradient>
       </defs>
-      <path d="M12 2v20" stroke="url(#leafGradient)" strokeWidth="2" />
-      <path d="M12 7c4 2 8 8 0 12" stroke="url(#leafGradient)" strokeWidth="2" />
-      <path d="M12 7c-4 2 -8 8 0 12" stroke="url(#leafGradient)" strokeWidth="2" />
+      <path d="M12 22V8" stroke="url(#leafGradient)" />
+      <path d="M12 8c4-1 6-4 6-8" stroke="url(#leafGradient)" />
+      <path d="M10 14c-4 0-6-3-6-6" stroke="url(#leafGradient)" />
+      <path d="M14 14c4 0 6-3 6-6" stroke="url(#leafGradient)" />
+      <path d="M12 18c-4 0-6-3-6-6" stroke="url(#leafGradient)" />
+      <path d="M12 18c4 0 6-3 6-6" stroke="url(#leafGradient)" />
     </svg>
   );
 }
