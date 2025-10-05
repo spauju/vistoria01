@@ -24,6 +24,11 @@ export const metadata: Metadata = {
     template: APP_TITLE_TEMPLATE,
   },
   description: APP_DESCRIPTION,
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icons/icon-192x192.svg",
+    apple: "/icons/icon-192x192.svg",
+  },
 };
 
 export const viewport: Viewport = {
