@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Logo } from '@/components/logo';
+import { Icon } from '@/components/icon';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -50,7 +50,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
-            <Logo className="h-10 w-10 text-primary" />
+            <Icon className="h-10 w-10 text-primary" />
           <CardTitle className="text-2xl">CanaControl</CardTitle>
           <CardDescription>
             Entre com seu email e senha para acessar o painel.
